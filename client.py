@@ -67,7 +67,7 @@ class APP(CTk):
         self.regist_frame = Frames(self, 'regist', (0,1),0)
         self.regist_button_add = CTkButton(self.regist_frame, text = 'отправить', font = self.font, command=self.regist)
         self.regist_button_add.grid(row=1,column=1,pady=(0,30),padx=20, sticky = 'se')
-        self.regist_button_next = CTkButton(self.regist_frame, text = 'дальше', font = self.font)
+        self.regist_button_next = CTkButton(self.regist_frame, text = 'дальше', font = self.font, command=self.pass_regt)
         self.regist_button_next.grid(row=1,column=0,pady=(0,30),padx=20, sticky = 'se')
         self.regist_entry = CTkEntry(self.regist_frame, placeholder_text='Введите ваше имя', font = self.font)
         self.regist_entry.grid(row=0,column=0,pady=10,padx=20, columnspan=2, sticky = 'we')
@@ -75,7 +75,7 @@ class APP(CTk):
         # self.regist_frame.grid(row=1, column=0, pady = (0,20), padx=20, sticky='we')
         
         self.no_conn_frame = Frames(self,'no_conn', 0, (0,1))
-        self.no_conn_button = CTkButton(self.no_conn_frame, text = 'поменять', font = self.font, command=self.draw_message)
+        self.no_conn_button = CTkButton(self.no_conn_frame, text = 'поменять', font = self.font, command=self.change_host)
         self.no_conn_button.grid(row=0,column=1,pady=30,padx=20, sticky = 'se')
         self.no_conn_entry = CTkEntry(self.no_conn_frame, placeholder_text='Код', font = self.font, width=60)
         self.no_conn_entry.grid(row=0,column=0,pady=30,padx=20, sticky = 's')
@@ -142,7 +142,6 @@ class APP(CTk):
                                 self.draw_message('Требуется/регистрация')
                                 self.regist_button_next.grid_forget()
                             else:
-                                print(data)
                                 self.draw_message('Вы есть в базе!/Ваше имя может/быть изменено')
                                 
                                 
@@ -156,7 +155,9 @@ class APP(CTk):
                         s.send(f'regt*{data}'.encode())
                         
                         answer = s.recv(1024).decode()
-                        if answer != '//has': #такого имени нет в списке сервера
+                        if answer == '//rename': # сервер одобрил смену имени
+                            self.draw_message('Вы сменили/имя!')
+                        elif answer != '//has': #такого имени нет в списке сервера
                             self.id, date = answer.split('/')
                             # записываю в файл
                             with open('last_conn.txt','w') as file:
@@ -170,8 +171,13 @@ class APP(CTk):
                             self.draw_message('Такое имя уже/занято:(')
                         
                 except ConnectionRefusedError:
-                    self.draw_message('Сервер/не отвечает:(/Смените код')
+                    self.draw_message('Сервер/не отвечает:(')
                     self.change_frame('no_conn')
+                
+                except TimeoutError:
+                    self.draw_message('Кажется, вы указали/неверный код')
+                    self.change_frame('no_conn')
+                    
                 finally:
                     self.load_bar.set(1.0)
                     self.load_bar.configure(mode='determinate')
@@ -210,6 +216,42 @@ class APP(CTk):
         else:
             self.draw_message('Введите ваше имя,/пожалуйста!')
             self.regist_entry.focus()
+    
+    def pass_regt(self):
+        self.draw_message('Вход успешно/был осуществлен')
         
+        self.change_frame()
+
+    def change_host(self):
+        code = self.no_conn_entry.get()
+        
+        if code.isdigit(): # состоит из цифр
+            # открываю файл с хостом и портом
+            with open('HOST_PORT.txt') as file:
+                HOST = file.readline()[:-1]
+                PORT = int(file.readline()[:-1]) # порт менять не буду
+                
+                # ищу индекс последней точки
+                ind = HOST.rfind('.')
+                HOST = HOST[:ind+1] + code
+        
+            # меняю хост
+            with open('HOST_PORT.txt', 'w') as file:
+                for i in (HOST, PORT):
+                    file.write(f'{i}\n')
+            
+            self.change_frame()
+            self.connect_to_server()
+                
+                
+            
+        else:
+            self.draw_message('Используйте/только цифры!')
+            self.no_conn_entry.delete(0, 'end')
+        
+            
+    
+    
+    
 app = APP()
 app.mainloop()
