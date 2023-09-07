@@ -8,6 +8,9 @@ from customtkinter import (CTk,
 from threading import Thread
 from time import sleep
 import socket
+import ctypes
+from pickle import dumps
+from re import sub
 
 class Frames(CTkFrame):
     def __init__(self, master, name,rows=None, columns=None, height=140):
@@ -42,6 +45,8 @@ class APP(CTk):
         
         # для socket
         self.id = ''
+        self.has_at_server = False # флаг о том, что есть в базе
+        self.controling_flag = False
         
         # текст для терминала
         self.queue_mes = []
@@ -109,8 +114,8 @@ class APP(CTk):
             g = Thread(target=start_draw)
             g.start()
 
-    def connect_to_server(self, comm = 'open'):
-        def data_interchange():
+    def connect_to_server(self, comm = 'open', data = None):
+        def data_interchange(data = data):
             # получить хост и порт
             with open('HOST_PORT.txt') as file:
                 HOST = file.readline()[:-1]
@@ -128,6 +133,18 @@ class APP(CTk):
                 try:
                     s.connect((HOST, PORT))
                     
+                        
+                except ConnectionRefusedError:
+                    self.draw_message('Сервер/не отвечает:(')
+                    self. controling_flag = False
+                    self.change_frame('no_conn')
+                
+                except TimeoutError:
+                    self.draw_message('Кажется, вы указали/неверный код')
+                    self. controling_flag = False
+                    self.change_frame('no_conn')
+                
+                else:
                     if comm == 'open': #Состояние регистрации
                         # время последнего подключения
                         with open('last_conn.txt') as file:
@@ -157,6 +174,8 @@ class APP(CTk):
                         answer = s.recv(1024).decode()
                         if answer == '//rename': # сервер одобрил смену имени
                             self.draw_message('Вы сменили/имя!')
+                            self.has_at_server = True
+                            self.controler()
                         elif answer != '//has': #такого имени нет в списке сервера
                             self.id, date = answer.split('/')
                             # записываю в файл
@@ -167,17 +186,19 @@ class APP(CTk):
                             # переход
                             self.draw_message('Вы/зарегестрированы!')
                             self.change_frame()
+                            self.has_at_server = True
+                            self.controler()
                         else:
                             self.draw_message('Такое имя уже/занято:(')
-                        
-                except ConnectionRefusedError:
-                    self.draw_message('Сервер/не отвечает:(')
-                    self.change_frame('no_conn')
-                
-                except TimeoutError:
-                    self.draw_message('Кажется, вы указали/неверный код')
-                    self.change_frame('no_conn')
                     
+                    elif comm == 'control': # клиент отправляет отчет об открытых прогах
+                        # отправляю запрос на отправку вместе с id
+                        s.send(f'ctrl*{self.id}'.encode())
+                        
+                        # отправить отчет
+                        print(data)
+                        s.send(dumps(data))
+                        
                 finally:
                     self.load_bar.set(1.0)
                     self.load_bar.configure(mode='determinate')
@@ -249,9 +270,73 @@ class APP(CTk):
             self.draw_message('Используйте/только цифры!')
             self.no_conn_entry.delete(0, 'end')
         
+    def controler(self):
+        def controling():
+            self. controling_flag = True
             
-    
+            # запустить контроль
+            EnumWindows = ctypes.windll.user32.EnumWindows
+            EnumWindowsProc = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int))
+            GetWindowText = ctypes.windll.user32.GetWindowTextW
+            GetWindowTextLength = ctypes.windll.user32.GetWindowTextLengthW
+            IsWindowVisible = ctypes.windll.user32.IsWindowVisible
+            
+            def foreach_window(hwnd, lParam):
+                if IsWindowVisible(hwnd):
+                    length = GetWindowTextLength(hwnd)
+                    buff = ctypes.create_unicode_buffer(length + 1)
+                    GetWindowText(hwnd, buff, length + 1)
+                    titles.append(buff.value)
+                return True
+            
+            while self. controling_flag:
+                # отправлять отчет каждые 5 секунд
+                sleep(1) 
+                
+                titles = []
+                EnumWindows(EnumWindowsProc(foreach_window), 0)
+                # заменить  спецсимвол
+                titles = [title.replace('\u200b','') for title in titles]
+                titles = [title.replace('\\xa0','') for title in titles]
+                titles = [title.replace('\xa0','') for title in titles]
+
+                # удалить из списка определенные процессы
+                for title in tuple(titles):
+                    if title in ('','client','Program Manager'):
+                        titles.remove(title)
+                # и
+                # new_titles = []
+                # for title in tuple(titles):
+                #     if title.find('-') != -1: 
+                #         new_titles.append(title)
+                
+                # i = dumps()
+                self.connect_to_server('control', titles)
+        
+        
+        # запустить только один поток
+        if self.controling_flag == False:
+            controling_thread = Thread(target=controling)
+            controling_thread.start()
+            
+            
+        
     
     
 app = APP()
 app.mainloop()
+
+# app.connect_to_server('close')
+app.controling_flag = False
+if app.has_at_server:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        # получить хост и порт
+        with open('HOST_PORT.txt') as file:
+            HOST = file.readline()[:-1]
+            PORT = int(file.readline()[:-1])
+        s.connect((HOST, PORT))
+        s.send(f'cls*{app.id}'.encode())
+    
+    
+    
+    
