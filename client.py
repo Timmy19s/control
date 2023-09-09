@@ -10,7 +10,6 @@ from time import sleep
 import socket
 import ctypes
 from pickle import dumps
-from re import sub
 
 class Frames(CTkFrame):
     def __init__(self, master, name,rows=None, columns=None, height=140):
@@ -175,7 +174,7 @@ class APP(CTk):
                         if answer == '//rename': # сервер одобрил смену имени
                             self.draw_message('Вы сменили/имя!')
                             self.has_at_server = True
-                            self.controler()
+                            self.controller()
                         elif answer != '//has': #такого имени нет в списке сервера
                             self.id, date = answer.split('/')
                             # записываю в файл
@@ -187,7 +186,7 @@ class APP(CTk):
                             self.draw_message('Вы/зарегестрированы!')
                             self.change_frame()
                             self.has_at_server = True
-                            self.controler()
+                            self.controller()
                         else:
                             self.draw_message('Такое имя уже/занято:(')
                     
@@ -270,7 +269,7 @@ class APP(CTk):
             self.draw_message('Используйте/только цифры!')
             self.no_conn_entry.delete(0, 'end')
         
-    def controler(self):
+    def controller(self):
         def controling():
             self. controling_flag = True
             
