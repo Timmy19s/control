@@ -192,7 +192,9 @@ class APP(CTk):
                     
                     elif comm == 'control': # клиент отправляет отчет об открытых прогах
                         # отправляю запрос на отправку вместе с id
+                        print(self.id)
                         s.send(f'ctrl*{self.id}'.encode())
+                        
                         
                         # отправить отчет
                         print(data)
@@ -299,6 +301,7 @@ class APP(CTk):
                 titles = [title.replace('\\xa0','') for title in titles]
                 titles = [title.replace('\xa0','') for title in titles]
 
+
                 # удалить из списка определенные процессы
                 for title in tuple(titles):
                     if title in ('','client','Program Manager'):
@@ -310,6 +313,7 @@ class APP(CTk):
                 #         new_titles.append(title)
                 
                 # i = dumps()
+                
                 self.connect_to_server('control', titles)
         
         

@@ -10,7 +10,8 @@ from customtkinter import (CTk,
                            CTkEntry,
                            CTkFont,
                            CTkSegmentedButton,
-                           CTkImage)
+                           CTkImage,
+                           CTkTextbox)
 from PIL import Image
 from pickle import loads
 import sqlite3
@@ -98,8 +99,8 @@ class APP(CTk):
         # список и кнопка
         self.statistic_all_title = CTkLabel(self.statistic_all_frame, text= 'Новые процессы:')
         self.statistic_all_title.grid(row=1, column = 0)
-        self.statistic_all_list = CTkLabel(self.statistic_all_frame, text='Visual studio code\ndd\n\ndd\nse')
-        self.statistic_all_list.grid(row=2, column = 0,pady = 10, sticky = 'nwe')
+        self.statistic_all_list = CTkTextbox(self.statistic_all_frame)
+        self.statistic_all_list.grid(row=2, column = 0,pady = 10, sticky = 'nswe')
         self.statistic_all_button = CTkButton(self.statistic_all_frame, text = 'закрыть все\nзапрещенные процессы')
         self.statistic_all_button.grid(row=3, column = 0, sticky = 's')
         
@@ -239,108 +240,117 @@ class APP(CTk):
                         pass
                     else:
                         with conn:
-                            data = (conn.recv(1024)).decode()
-                            
-                            comm, data = data.split('*')
-                            
-                            if comm == 'open': #клиент включил прогу и проверяет статус регистрации
-                                date_client, id = data.split('/')
-                                id = int(id)
+                            try:
+                                data = (conn.recv(1024)).decode()
+                            except UnicodeDecodeError:
+                                self.draw_message('проблемма с юникодом')
+                            else:
+                                comm, data = data.split('*')
                                 
-                                # проверяю, сходится ли время сеанса и сущесвование id в списке
-                                if date == date_client and id in tuple(dict_clients.keys()):
-                                    conn.send('//pass'.encode())
+                                if comm == 'open': #клиент включил прогу и проверяет статус регистрации
+                                    date_client, id = data.split('/')
+                                    id = int(id)
+                                    
+                                    # проверяю, сходится ли время сеанса и сущесвование id в списке
+                                    if date == date_client and id in tuple(dict_clients.keys()):
+                                        conn.send('//pass'.encode())
+                                    
+                                    else: # запросить зарегистрироваться
+                                        conn.send('//regist'.encode())
                                 
-                                else: # запросить зарегистрироваться
-                                    conn.send('//regist'.encode())
-                            
-                            elif comm == 'regt': # пользователь пытается зарегистрироваться или сменить имя
-                                name, id = data.split('/')
-                            
-                                # проверяю существование идентичных имен
-                                names = [name.upper() for name in dict_clients.values()] # список имен с верхнего регистра. Был замечен баг.
-                                if name.upper() not in names: # нет
+                                elif comm == 'regt': # пользователь пытается зарегистрироваться или сменить имя
+                                    name, id = data.split('/')
+                                
+                                    # проверяю существование идентичных имен
+                                    names = [name.upper() for name in dict_clients.values()] # список имен с верхнего регистра. Был замечен баг.
+                                    if name.upper() not in names: # нет
 
-                                    if id == 'None': #создаю новое id
-                                        # генерирую id
-                                        id = len(dict_clients)
-                                        conn.send(f'{id}/{date}'.encode())
+                                        if id == 'None': #создаю новое id
+                                            # генерирую id
+                                            id = len(dict_clients)
+                                            conn.send(f'{id}/{date}'.encode())
+                                            
+                                            self.draw_message(f'{name} присоединился!')
+                                            
+                                            # добавить в словарь процессов
+                                            self.dict_cntr[id] = tuple()
+                                            
+                                        else:
+                                            conn.send(f'//rename'.encode())
+                                            id = int(id)
+                                            
+                                            self.draw_message(f'{name} вернулся!')
+                                            
+                                        # добавляю или меняю
+                                        dict_clients[id] = name    
                                         
-                                        self.draw_message(f'{name} присоединился!')
                                         
-                                        # добавить в словарь процессов
-                                        self.dict_cntr[id] = tuple()
+                                        # отображаю
+                                        self.dict_clients_buttons[id].configure(text = name,fg_color = '#edff21' ,text_color = '#4c4f4c')
                                         
+                                            
                                     else:
-                                        conn.send(f'//rename'.encode())
-                                        id = int(id)
-                                        
-                                        self.draw_message(f'{name} вернулся!')
-                                        
-                                    # добавляю или меняю
-                                    dict_clients[id] = name    
-                                    
-                                    
-                                    # отображаю
-                                    self.dict_clients_buttons[id].configure(text = name,fg_color = '#edff21' ,text_color = '#4c4f4c')
-                                    
-                                        
-                                else:
-                                    conn.send('//has'.encode())
+                                        conn.send('//has'.encode())
 
-                            elif comm == 'ctrl': # клиент отправляет отчет
-                                id = int(data)
+                                elif comm == 'ctrl': # клиент отправляет отчет
+                                    id = int(data)
+                                    
+                                    # получить отчет
+                                    data = loads(conn.recv(1024))
+                                    
+                                    
+                                    # сортировка
+                                    sorted_len_pr = [0,0,0]
+                                    for pr in data:
+                                        pr = pr.lower()
+                                        # определить, является ли этот процесс нежелательным
+                                        if any(key_w in pr for key_w in self.bad_pr):
+                                            sorted_len_pr[2] += 1
+                                            
+                                            
+                                        elif any(key_w in pr for key_w in self.good_pr): # разрешенный
+                                            sorted_len_pr[0] += 1
+                                            
+                                        else: # нейтральные
+                                            # print((pr,))
+                                            sorted_len_pr[1] += 1
+                                            
+                                            
+                                        # проверить, новый ли это процесс
+                                        # self.check_pr(pr)
+                                    
+                                    # сохранить данные
+                                    self.save_processes(data, id)
+                                    # сверить время и изменить dict_ctrl
+                                    # if id in self.dict_cntr:
+                                    #     print('ds')
+                                        # if self.dict_cntr[id][1] - int(time()) > 30: # не отвечает
+                                        #     self.dict_clients_buttons[id].configure(fg_color='#cccccc')
+                                    # if id == 1:
+                                    #     print()
+                                    self.dict_cntr[id] = (sorted_len_pr, int(time()))
+                                    
+                                    
+
+                                    # суммирую 
+                                    all_prs = [0,0,0]
+                                    for i in tuple(self.dict_cntr.values()):
+                                        if i != ():
+                                            for j in range(3):
+                                                all_prs[j] += i[0][j]
+                                    
+                                    # диаграммы и кнопка
+                                    self.data_diag = tuple(all_prs)
+                                    self.data_id = (id)
+                                    self.after(10, self.update_diag)
+                                    
                                 
-                                # получить отчет
-                                data = loads(conn.recv(1024))
-                                
-                                
-                                # сортировка
-                                sorted_len_pr = [0,0,0]
-                                for pr in data:
-                                    pr = pr.lower()
-                                    # определить, является ли этот процесс нежелательным
-                                    if any(key_w in pr for key_w in self.bad_pr):
-                                        sorted_len_pr[2] += 1
-                                        
-                                        
-                                    elif any(key_w in pr for key_w in self.good_pr): # разрешенный
-                                        sorted_len_pr[0] += 1
-                                        
-                                    else: # нейтральные
-                                        # print((pr,))
-                                        sorted_len_pr[1] += 1
-                                
-                                # сохранить данные
-                                self.save_processes(data, id)
-                                # сверить время и изменить dict_ctrl
-                                # if id in self.dict_cntr:
-                                #     print('ds')
-                                    # if self.dict_cntr[id][1] - int(time()) > 30: # не отвечает
-                                    #     self.dict_clients_buttons[id].configure(fg_color='#cccccc')
-                                
-                                self.dict_cntr[id] = (sorted_len_pr, int(time()))
-                                
-                                
-                                # суммирую 
-                                all_prs = [0,0,0]
-                                for i in tuple(self.dict_cntr.values()):
-                                    for j in range(3):
-                                        all_prs[j] += i[0][j]
-                                
-                                # диаграммы и кнопка
-                                self.data_diag = tuple(all_prs)
-                                self.data_id = (id)
-                                self.after(10, self.update_diag)
-                                
-                                
-                                
-                                
-                                
-                                
-                                
-                            elif comm == 'cls': # клиент уведомляет о выключении проги
-                                self.dict_clients_buttons[int(data)].configure(fg_color='#cccccc')
+            
+                                elif comm == 'cls': # клиент уведомляет о выключении проги
+                                    self.dict_clients_buttons[int(data)].configure(fg_color='#cccccc')
+                                    
+                                    
+                                    
             self.draw_message('Сервер выключен.')
 
         server = Thread(target=start)
@@ -432,6 +442,18 @@ class APP(CTk):
 
     def show_info_pers(self, id):
         print(id)
+        
+    def check_pr(self, pr):
+        def check():
+            self.cursor.execute('SELECT * FROM PS WHERE process = (?)',(pr,))
+            print(self.cursor.fetchone())
+            # if  == None:
+            #     self.statistic_all_list.insert("0.0", f'{pr}\n\n')
+        
+        self.after(1, check)
+        
+        
+        
 app = APP()
 app.mainloop()
 
