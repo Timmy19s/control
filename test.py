@@ -1,21 +1,22 @@
+#Import the required Libraries
 from tkinter import *
-app = Tk()
 
+#Create an instance of tkinter frame
+win = Tk()
 
-def which_button(button_press):
-   print (button_press)
-   
-b1 = Button(app, text="#Text you want to show in button b1",
-            command=lambda m="#Text you want to show when\
-            b1 is clicked": which_button(m))
-            
-b1.grid(padx=10, pady=10)
+#Set the geometry of tkinter frame
+win.geometry("750x250")
 
-b2 = Button(app, text="#Text you want to show in button b2",
-            command=lambda m="#Text you want to show when \
-            b2 is clicked": which_button(m))
-            
-b2.grid(padx=10, pady=10)
+#Create a Text Box
+text= Text(win, width= 50, height= 30, background=
+"gray71",foreground="#fff",font= ('Sans Serif', 13, 'italic bold'))
 
+#Insert the text at the begining
+text.insert(INSERT, "Write Something About Yourself\n\n")
+text.pack(expand= 1, fill= BOTH)
 
-app.mainloop()
+text.insert('0.0', "Игддырше\n\n")
+
+text.insert('1.0', "hhfff\n\n")
+
+win.mainloop()

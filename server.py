@@ -17,10 +17,24 @@ from pickle import loads
 import sqlite3
 
 
+class Button_cl(CTkButton):
+    def __init__(self, master, id, text):
+        self.id = id
+        super().__init__(master.clients_frame, 
+                         text='',
+                         font = CTkFont('Comic Sans MS', 32, 'bold'),
+                         fg_color='#dcdcdc',
+                         height=50,
+                         command= lambda: master.change_focus(self.id))    
+                                        
+        
+        
+        
 class APP(CTk):
     run_server = True
     
     # словарь id - процессы
+    focus_pers = None
     dict_cntr = {}
     
     
@@ -29,6 +43,7 @@ class APP(CTk):
     cursor = connection.cursor()
     
     # база данных
+    cursor.execute('DELETE FROM PS',)
     # хорошие и плохие процессы
     cursor.execute('SELECT key_word FROM KW WHERE type LIKE "bd"',)
     bad_pr = tuple([i[0] for i in cursor.fetchall()])
@@ -115,10 +130,23 @@ class APP(CTk):
         self.statistic_persenal_frame.grid_rowconfigure(2,weight=1)
         self.statistic_persenal_pie = CTkLabel(self.statistic_persenal_frame, text='Name', compound='bottom')
         self.statistic_persenal_pie.grid(row=0, column = 0, pady =20,  sticky = 'ew')
-        self.statistic_persenal_title = CTkLabel(self.statistic_persenal_frame, text= 'Новые процессы:')
+        self.statistic_persenal_title = CTkLabel(self.statistic_persenal_frame, text= 'Процессы:')
         self.statistic_persenal_title.grid(row=1, column = 0)
-        self.statistic_persenal_list = CTkLabel(self.statistic_persenal_frame, text='Visual studio code\ndd\n\ndd\nse')
-        self.statistic_persenal_list.grid(row=2, column = 0,pady = 10, sticky = 'nwe')
+        # рамка процессы
+        self.statistic_persenal_list_frame = CTkFrame(self.statistic_persenal_frame)
+        self.statistic_persenal_list_r = CTkLabel(self.statistic_persenal_list_frame, # красные процессы
+                                                  fg_color='#ff6347',
+                                                  corner_radius=10)
+        self.statistic_persenal_list_r.grid(row=0, column = 0)
+        self.statistic_persenal_list_y = CTkLabel(self.statistic_persenal_list_frame, #желтые
+                                                  fg_color='#ffff66',
+                                                  corner_radius=10)
+        self.statistic_persenal_list_y.grid(row=1, column = 0)
+        self.statistic_persenal_list_g = CTkLabel(self.statistic_persenal_list_frame, # зеленые
+                                                  fg_color='#66ff66',
+                                                  corner_radius=10)
+        self.statistic_persenal_list_g.grid(row=2, column = 0)
+        self.statistic_persenal_list_frame.grid(row=2, column = 0,pady = 10, sticky = 'nswe')
         self.statistic_persenal_button = CTkButton(self.statistic_persenal_frame, text = 'Показать\nплохиша')
         self.statistic_persenal_button.grid(row=3, column = 0, sticky = 's')
         
@@ -131,13 +159,9 @@ class APP(CTk):
         self.clients_frame.grid_columnconfigure((0,1,2,3), weight=1)
         # создать кнопки для всех клиентов
         self.dict_clients_buttons = {} # кнопки по id
-        for i in range(17):
+        for i in range(16):
             # создать
-            self.dict_clients_buttons[i] = CTkButton(self.clients_frame, 
-                                                     text='', 
-                                                     font = CTkFont('Comic Sans MS', 32, 'bold'),
-                                                     fg_color="transparent",
-                                                     command=lambda: self.show_info_pers()) 
+            self.dict_clients_buttons[i] = Button_cl(self,i,'fwfwf')
             # расположить
             row = i//4
             col = i%4
@@ -298,26 +322,34 @@ class APP(CTk):
                                     # получить отчет
                                     data = loads(conn.recv(1024))
                                     
+                                    # нужно ли отображать инфу
+                                    if id == APP.focus_pers:
+                                        info_pr = [[],[],[]]
                                     
                                     # сортировка
                                     sorted_len_pr = [0,0,0]
                                     for pr in data:
-                                        pr = pr.lower()
+                                        pr_low = pr.lower()
                                         # определить, является ли этот процесс нежелательным
-                                        if any(key_w in pr for key_w in self.bad_pr):
-                                            sorted_len_pr[2] += 1
-                                            
-                                            
-                                        elif any(key_w in pr for key_w in self.good_pr): # разрешенный
-                                            sorted_len_pr[0] += 1
-                                            
+                                        if any(key_w in pr_low for key_w in self.bad_pr):
+                                            ind = 2
+                                        elif any(key_w in pr_low for key_w in self.good_pr): # разрешенный
+                                            ind =0
                                         else: # нейтральные
-                                            # print((pr,))
-                                            sorted_len_pr[1] += 1
+                                            ind = 1
+                                        
+                                        
+                                        sorted_len_pr[ind] += 1
+                                        # нужно ли отображать инфу
+                                        if id == APP.focus_pers:
+                                            info_pr[ind].append(pr)
                                             
                                             
                                         # проверить, новый ли это процесс
-                                        # self.check_pr(pr)
+                                        self.check_pr(pr)
+                                    
+                                    if id == APP.focus_pers:
+                                        self.show_info_pers(info_pr)
                                     
                                     # сохранить данные
                                     self.save_processes(data, id)
@@ -436,21 +468,35 @@ class APP(CTk):
             self.cursor.execute('DELETE FROM PS WHERE id = (?)',(id,))
             # добавляю новое
             for pr in data:
+                pr = pr.lower()
                 self.cursor.execute('INSERT INTO PS (id, process) VALUES (?, ?)', (id, pr))
 
         self.after(10,save)
 
-    def show_info_pers(self, id):
-        print(id)
+    def show_info_pers(self, info_prs):
+        name = self.dict_clients_buttons[APP.focus_pers].cget('text')
+        
+        self.statistic_persenal_title.configure(text = name)
+        
+        labels = (self.statistic_persenal_list_r,self.statistic_persenal_list_y,self.statistic_persenal_list_g)
+        for i in range(3):
+            if info_prs[i] != []:
+                text_l = '\n\n'.join(info_prs[i])
+                labels[i].configure(text = text_l)
+        
+    def change_focus(self, id):
+        APP.focus_pers = id
         
     def check_pr(self, pr):
         def check():
-            self.cursor.execute('SELECT * FROM PS WHERE process = (?)',(pr,))
-            print(self.cursor.fetchone())
-            # if  == None:
-            #     self.statistic_all_list.insert("0.0", f'{pr}\n\n')
+            # self.cursor.execute('SELECT * FROM PS')
+            # print(self.cursor.fetchall())
+            self.cursor.execute('SELECT * FROM PS WHERE process = (?)',(pr.lower(),))
+            if self.cursor.fetchone() == None:
+                self.statistic_all_list.insert("0.0", f'{pr}\n\n')
+            # self.statistic_all_list.insert("1.0", f'{pr}\n\n')
         
-        self.after(1, check)
+        self.after(10, check)
         
         
         

@@ -22,9 +22,14 @@ type TEXT NOT NULL
 # k = 'Радужные друзья'
 
 # Выбираем всех пользователей
+cursor.execute('DELETE FROM PS',)
 cursor.execute('SELECT * FROM PS',)
 users = cursor.fetchall()
 print(users)
+
+# cursor.execute('SELECT * FROM PS WHERE process = (?)',('server.py - socket - visual studio code',))
+# users = cursor.fetchone()
+# print(users)
 
 
 # bad_pr = tuple([i for i in cursor.fetchall()])
