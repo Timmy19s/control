@@ -459,22 +459,25 @@ class APP(CTk):
     def show_info_pers(self, info_prs = None):
         def update():
             nonlocal info_prs
+            info_prs_l = info_prs
             name = self.dict_clients_buttons[APP.focus_pers].cget('text')
             
             # архивные ли процессы
-            text = f'{name}\n\nПроцессы:' if info_prs != None else f'{name}\n\nАрхив:'
+            text = f'{name}\n\nПроцессы:' if info_prs_l != None else f'{name}\n\nАрхив:'
             self.statistic_persenal_title.configure(text = text)
             
             # подгрузить старые процессы, если info_prs пустой
             
-            if info_prs == None:
+            if info_prs_l == None:
                 self.cursor.execute('SELECT process FROM PS WHERE id = (?)', (self.focus_pers,))
-                info_prs = [[],[i[0] for i in self.cursor.fetchall()],[]]
+                info_prs_l = [[],[i[0] for i in self.cursor.fetchall()],[]]
+                
+                print(info_prs_l)
             
             
             # редактировать процессы
             i_t = 1
-            for ind_i,type_i in enumerate(info_prs):
+            for ind_i,type_i in enumerate(tuple(info_prs_l)):
                 for ind_pr, pr in enumerate(type_i):
                     pr = f'{i_t}) {pr}'
 
@@ -490,15 +493,15 @@ class APP(CTk):
                         if i >= len(pr):
                             break
 
-                    info_prs[ind_i][ind_pr] = '\n'.join(upg_pr)
+                    info_prs_l[ind_i][ind_pr] = '\n'.join(upg_pr)
                     i_t += 1
             
             # изменить список
-            info_prs = list(reversed(info_prs))
+            info_prs_l = list(reversed(info_prs_l))
             labels = (self.statistic_persenal_list_r,self.statistic_persenal_list_y,self.statistic_persenal_list_g)
             for i in range(3):
-                if info_prs[i] != []:
-                    text_l = '\n\n'.join(info_prs[i])
+                if info_prs_l[i] != []:
+                    text_l = '\n\n'.join(info_prs_l[i])
                     labels[i].configure(text = text_l)
 
         self.after(10, update)

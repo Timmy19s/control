@@ -32,6 +32,12 @@ from datetime import datetime
         
         
 class APP(CTk):
+    # список неотслежываемых программ
+    with open('lst.txt') as file:
+        untraceable_prs = ['',] # пустой процесс тоже есть в списке программ
+        for i in file:
+            untraceable_prs.append(i[:-1])
+    
     def __init__(self):
         super().__init__()
         
@@ -302,10 +308,12 @@ class APP(CTk):
                 titles = [title.replace('\\xa0','') for title in titles]
                 titles = [title.replace('\xa0','') for title in titles]
 
-
+                # сделать список уникальным
+                titles = list(set(titles))
+                
                 # удалить из списка определенные процессы
                 for title in tuple(titles):
-                    if title in ('','client','Program Manager'):
+                    if title in APP.untraceable_prs:
                         titles.remove(title)
                 # и
                 # new_titles = []
