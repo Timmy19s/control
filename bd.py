@@ -11,6 +11,13 @@ key_word TEXT NOT NULL,
 type TEXT NOT NULL
 )
 ''')
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS PS (
+id INTEGER,
+process TEXT,
+type_p TEXT
+)
+''')
 
 
 # # Добавляем нового пользователя
@@ -22,14 +29,17 @@ type TEXT NOT NULL
 # k = 'Радужные друзья'
 
 # Выбираем всех пользователей
-cursor.execute('DELETE FROM PS',)
+# cursor.execute('DELETE FROM PS',)
+# cursor.execute('SELECT * FROM PS',)
+# users = cursor.fetchall()
+# print(users)
+
+# cursor.execute('INSERT INTO PS (id, process, type_p) VALUES (?,?,?)',(2,'калькулятор', 'bd'))
+
 cursor.execute('SELECT * FROM PS',)
 users = cursor.fetchall()
-print(users)
 
-# cursor.execute('SELECT * FROM PS WHERE process = (?)',('server.py - socket - visual studio code',))
-# users = cursor.fetchone()
-# print(users)
+print(users)
 
 
 # bad_pr = tuple([i for i in cursor.fetchall()])

@@ -55,7 +55,7 @@ class APP(CTk):
         
         # окно
         self.title("server")
-        self.geometry(f"{int(self.winfo_screenwidth()*0.9)}x{int(self.winfo_screenheight()*0.9)}+0+0")
+        self.geometry(f"{int(self.winfo_screenwidth()*0.9)}x{int(self.winfo_screenheight()*0.5)}+0+0")
         
         
         
@@ -102,21 +102,21 @@ class APP(CTk):
         self.statistic_all_diag_frame.grid_propagate(False)
         self.statistic_all_diag_text = CTkLabel(self.statistic_all_diag_frame, # Надпись
                                                 text = 'Все студенты:', 
-                                                font=CTkFont(size=16, weight="bold"))
+                                                font= CTkFont('Comic Sans MS', 18))
         self.statistic_all_diag_text.grid(row=0, column=0, columnspan=3)
-        self.statistic_all_diag_g = CTkLabel(self.statistic_all_diag_frame, fg_color= '#32cd32', width=50) # зеленная дигр-ма
+        self.statistic_all_diag_g = CTkLabel(self.statistic_all_diag_frame, fg_color= '#32cd32', width=50, text = '0%') # зеленная дигр-ма
         self.statistic_all_diag_g.grid(row=1, column=0, sticky = 's')
-        self.statistic_all_diag_y = CTkLabel(self.statistic_all_diag_frame, fg_color= '#edff21', width=50) # желтая дигр-ма
+        self.statistic_all_diag_y = CTkLabel(self.statistic_all_diag_frame, fg_color= '#edff21', width=50, text = '0%') # желтая дигр-ма
         self.statistic_all_diag_y.grid(row=1, column=1, sticky = 's')
-        self.statistic_all_diag_r = CTkLabel(self.statistic_all_diag_frame, fg_color= '#ff0033', width=50) # красная дигр-ма
+        self.statistic_all_diag_r = CTkLabel(self.statistic_all_diag_frame, fg_color= '#ff5029', width=50, text = '0%') # красная дигр-ма
         self.statistic_all_diag_r.grid(row=1, column=2, sticky = 's')
         self.statistic_all_diag_frame.grid(row=0, column = 0)
         # список и кнопка
-        self.statistic_all_title = CTkLabel(self.statistic_all_frame, text= 'Новые процессы:')
-        self.statistic_all_title.grid(row=1, column = 0)
+        self.statistic_all_title = CTkLabel(self.statistic_all_frame, text= 'Новые процессы:', font= CTkFont('Comic Sans MS', 18))
+        self.statistic_all_title.grid(row=1, column = 0, pady = (10,0), sticky = 's')
         self.statistic_all_list = CTkTextbox(self.statistic_all_frame)
-        self.statistic_all_list.grid(row=2, column = 0,pady = 10, sticky = 'nswe')
-        self.statistic_all_button = CTkButton(self.statistic_all_frame, text = 'закрыть все\nзапрещенные процессы')
+        self.statistic_all_list.grid(row=2, column = 0,pady = (0,10), padx = 20, sticky = 'nswe')
+        self.statistic_all_button = CTkButton(self.statistic_all_frame, text = 'Очистить\nполе', command=self.clean_list_prs)
         self.statistic_all_button.grid(row=3, column = 0, sticky = 's')
         
         
@@ -128,27 +128,28 @@ class APP(CTk):
         self.statistic_persenal_frame = CTkFrame(self)
         self.statistic_persenal_frame.grid_columnconfigure(0,weight=1)
         self.statistic_persenal_frame.grid_rowconfigure(2,weight=1)
-        self.statistic_persenal_pie = CTkLabel(self.statistic_persenal_frame, text='Name', compound='bottom')
-        self.statistic_persenal_pie.grid(row=0, column = 0, pady =20,  sticky = 'ew')
-        self.statistic_persenal_title = CTkLabel(self.statistic_persenal_frame, text= 'Процессы:')
-        self.statistic_persenal_title.grid(row=1, column = 0)
+        self.statistic_persenal_title = CTkLabel(self.statistic_persenal_frame, text='Name\nПроцессы:', 
+                                                 compound='bottom',
+                                                 font= CTkFont('Comic Sans MS', 20))
+        self.statistic_persenal_title.grid(row=0, column = 0, pady =(20,0),  sticky = 'ew')
         # рамка процессы
-        self.statistic_persenal_list_frame = CTkFrame(self.statistic_persenal_frame)
+        self.statistic_persenal_list_frame = CTkFrame(self.statistic_persenal_frame, fg_color='transparent')
+        self.statistic_persenal_list_frame.columnconfigure(0, weight=1)
         self.statistic_persenal_list_r = CTkLabel(self.statistic_persenal_list_frame, # красные процессы
-                                                  fg_color='#ff6347',
+                                                  fg_color='#ff7a5c',
                                                   corner_radius=10)
-        self.statistic_persenal_list_r.grid(row=0, column = 0)
+        self.statistic_persenal_list_r.grid(row=0, column = 0, padx=10, pady = (10,0), sticky = 'we')
         self.statistic_persenal_list_y = CTkLabel(self.statistic_persenal_list_frame, #желтые
                                                   fg_color='#ffff66',
                                                   corner_radius=10)
-        self.statistic_persenal_list_y.grid(row=1, column = 0)
+        self.statistic_persenal_list_y.grid(row=1, column = 0, padx=10, pady = (10,0), sticky = 'we')
         self.statistic_persenal_list_g = CTkLabel(self.statistic_persenal_list_frame, # зеленые
                                                   fg_color='#66ff66',
                                                   corner_radius=10)
-        self.statistic_persenal_list_g.grid(row=2, column = 0)
-        self.statistic_persenal_list_frame.grid(row=2, column = 0,pady = 10, sticky = 'nswe')
-        self.statistic_persenal_button = CTkButton(self.statistic_persenal_frame, text = 'Показать\nплохиша')
-        self.statistic_persenal_button.grid(row=3, column = 0, sticky = 's')
+        self.statistic_persenal_list_g.grid(row=2, column = 0, padx=10, pady = (10,0), sticky = 'we')
+        self.statistic_persenal_list_frame.grid(row=1, column = 0,pady = 10, sticky = 'nswe')
+        self.statistic_persenal_button = CTkButton(self.statistic_persenal_frame, text = 'Показать\nплохиша', command=self.show_worst_cl)
+        self.statistic_persenal_button.grid(row=2, column = 0, sticky = 's')
         
         self.statistic_persenal_frame.grid(row = 1,column = 0, rowspan = 3, padx = (0,0), sticky = 'nsew')
         
@@ -192,24 +193,8 @@ class APP(CTk):
         
         
         # запустить сервер
+        self.close_app = False
         self.start_server()
-        
-    def draw_pie_all(self):
-        # расширение экрана
-        w = self.winfo_width()
-        w = int(w*0.1)
-        w = 150 if w < 150 else w
-        
-        # обрезаю по стандарту
-        pie = Image.open('ddd.png') 
-        pie = pie.crop((226,72,764,618)) 
-        
-        
-        pie = CTkImage(pie, size=(w,w))
-        self.statistic_all_pie.configure(image=pie)
-        
-        # pie = CTkImage(pie, size=(w,w))
-        self.statistic_persenal_pie.configure(image=pie)
     
     def draw_message(self, mes='Приветсвую/Первый вход'):
         def start_draw():
@@ -254,6 +239,7 @@ class APP(CTk):
                 
                 server.settimeout(5)
                 # запускаю цикл на ожидание неоднократных подключений
+                self.close_app = False
                 while APP.run_server:
                     
 
@@ -297,7 +283,7 @@ class APP(CTk):
                                             self.draw_message(f'{name} присоединился!')
                                             
                                             # добавить в словарь процессов
-                                            self.dict_cntr[id] = tuple()
+                                            self.dict_cntr[id] = ((0,0,0), int(time()))
                                             
                                         else:
                                             conn.send(f'//rename'.encode())
@@ -322,11 +308,9 @@ class APP(CTk):
                                     # получить отчет
                                     data = loads(conn.recv(1024))
                                     
-                                    # нужно ли отображать инфу
-                                    if id == APP.focus_pers:
-                                        info_pr = [[],[],[]]
-                                    
+
                                     # сортировка
+                                    info_pr = [[],[],[]]
                                     sorted_len_pr = [0,0,0]
                                     for pr in data:
                                         pr_low = pr.lower()
@@ -341,8 +325,7 @@ class APP(CTk):
                                         
                                         sorted_len_pr[ind] += 1
                                         # нужно ли отображать инфу
-                                        if id == APP.focus_pers:
-                                            info_pr[ind].append(pr)
+                                        info_pr[ind].append(pr)
                                             
                                             
                                         # проверить, новый ли это процесс
@@ -352,7 +335,7 @@ class APP(CTk):
                                         self.show_info_pers(info_pr)
                                     
                                     # сохранить данные
-                                    self.save_processes(data, id)
+                                    self.save_processes(info_pr, id)
                                     # сверить время и изменить dict_ctrl
                                     # if id in self.dict_cntr:
                                     #     print('ds')
@@ -360,7 +343,7 @@ class APP(CTk):
                                         #     self.dict_clients_buttons[id].configure(fg_color='#cccccc')
                                     # if id == 1:
                                     #     print()
-                                    self.dict_cntr[id] = (sorted_len_pr, int(time()))
+                                    self.dict_cntr[id] = (tuple(sorted_len_pr), int(time()))
                                     
                                     
 
@@ -381,9 +364,7 @@ class APP(CTk):
                                 elif comm == 'cls': # клиент уведомляет о выключении проги
                                     self.dict_clients_buttons[int(data)].configure(fg_color='#cccccc')
                                     
-                                    
-                                    
-            self.draw_message('Сервер выключен.')
+            self.close_app = True
 
         server = Thread(target=start)
         server.start()
@@ -444,7 +425,7 @@ class APP(CTk):
             self.draw_message('Вы не ввели процесс')
         
     def update_diag(self): # диаграммы
-        prs = self.dict_cntr[self.data_id][0]
+        prs = list(self.dict_cntr[self.data_id][0])
         prs.reverse()
         ind = prs.index(max(prs))
         if ind == 0: # красный
@@ -467,25 +448,65 @@ class APP(CTk):
             # подчищаю
             self.cursor.execute('DELETE FROM PS WHERE id = (?)',(id,))
             # добавляю новое
-            for pr in data:
-                pr = pr.lower()
-                self.cursor.execute('INSERT INTO PS (id, process) VALUES (?, ?)', (id, pr))
+            type_proc = ['gd','nd','bd']
+            for i, type_p in enumerate(data):
+                for pr in type_p:
+                    pr = pr.lower()
+                    self.cursor.execute('INSERT INTO PS (id, process, type_p) VALUES (?, ?, ?)', (id, pr, type_proc[i]))
 
         self.after(10,save)
 
-    def show_info_pers(self, info_prs):
-        name = self.dict_clients_buttons[APP.focus_pers].cget('text')
-        
-        self.statistic_persenal_title.configure(text = name)
-        
-        labels = (self.statistic_persenal_list_r,self.statistic_persenal_list_y,self.statistic_persenal_list_g)
-        for i in range(3):
-            if info_prs[i] != []:
-                text_l = '\n\n'.join(info_prs[i])
-                labels[i].configure(text = text_l)
-        
+    def show_info_pers(self, info_prs = None):
+        def update():
+            nonlocal info_prs
+            name = self.dict_clients_buttons[APP.focus_pers].cget('text')
+            
+            # архивные ли процессы
+            text = f'{name}\n\nПроцессы:' if info_prs != None else f'{name}\n\nАрхив:'
+            self.statistic_persenal_title.configure(text = text)
+            
+            # подгрузить старые процессы, если info_prs пустой
+            
+            if info_prs == None:
+                self.cursor.execute('SELECT process FROM PS WHERE id = (?)', (self.focus_pers,))
+                info_prs = [[],[i[0] for i in self.cursor.fetchall()],[]]
+            
+            
+            # редактировать процессы
+            i_t = 1
+            for ind_i,type_i in enumerate(info_prs):
+                for ind_pr, pr in enumerate(type_i):
+                    pr = f'{i_t}) {pr}'
+
+                    upg_pr = []
+                    i = 0
+                    while 1:
+                        # проверяю первый символ - 
+                        while pr[i] == ' ':
+                            i+=1
+                        upg_pr.append(pr[i:i+30])
+                        i += 30
+                        
+                        if i >= len(pr):
+                            break
+
+                    info_prs[ind_i][ind_pr] = '\n'.join(upg_pr)
+                    i_t += 1
+            
+            # изменить список
+            info_prs = list(reversed(info_prs))
+            labels = (self.statistic_persenal_list_r,self.statistic_persenal_list_y,self.statistic_persenal_list_g)
+            for i in range(3):
+                if info_prs[i] != []:
+                    text_l = '\n\n'.join(info_prs[i])
+                    labels[i].configure(text = text_l)
+
+        self.after(10, update)
+
     def change_focus(self, id):
         APP.focus_pers = id
+        
+        self.show_info_pers()
         
     def check_pr(self, pr):
         def check():
@@ -497,14 +518,44 @@ class APP(CTk):
             # self.statistic_all_list.insert("1.0", f'{pr}\n\n')
         
         self.after(10, check)
-        
-        
+    
+    def clean_list_prs(self):
+        self.statistic_all_list.delete('0.0','end')
+   
+    def show_worst_cl(self):
+        if self.dict_cntr != {}:
+            vals = self.dict_cntr.values()
+            vals = [i[0] for i in vals]
+            maxval = max([i[2] for i in vals])
+            
+            # поиск списка
+            for i in vals:
+                if i[2] == maxval:
+                    maxval = i
+                    break
+                    
+            # поиск ключа по списку
+            for key_i, val_i in self.dict_cntr.items():
+                if val_i[0] == maxval:
+                    key_i
+                    break
+            
+            APP.focus_pers = key_i
+            self.show_info_pers()
         
 app = APP()
-app.mainloop()
 
-# выключить сервер
-APP.run_server = False
+def on_closing():
+    # app.draw_message('Идет выключение сервера...')
+    APP.run_server = False
+    # ожидать закрытие сервера
+    while app.close_app:
+        pass
+    app.destroy()
+    print('Сервер выключен')
+
+app.protocol("WM_DELETE_WINDOW", on_closing)
+app.mainloop()
 
 # выключить БД
 app.connection.commit()

@@ -4,7 +4,8 @@ from customtkinter import (CTk,
                            CTkLabel,
                            CTkButton,
                            CTkEntry,
-                           CTkFont)
+                           CTkFont,
+                           CTkScrollableFrame)
 from threading import Thread
 from time import sleep
 import socket
@@ -292,7 +293,7 @@ class APP(CTk):
             
             while self. controling_flag:
                 # отправлять отчет каждые 5 секунд
-                sleep(1) 
+                sleep(5) 
                 
                 titles = []
                 EnumWindows(EnumWindowsProc(foreach_window), 0)

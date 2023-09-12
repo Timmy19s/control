@@ -1,22 +1,21 @@
-#Import the required Libraries
-from tkinter import *
+# pr = "1) ValueError: ['sticky']are not    supported arguments. Look at the documentation for supported arguments."
 
-#Create an instance of tkinter frame
-win = Tk()
+# upg_pr = []
+# i = 0
+# while 1:
+#     # проверяю первый символ - 
+#     while pr[i] == ' ':
+#         i+=1
+#     upg_pr.append(pr[i:i+30])
+#     i += 30
+    
+#     if i >= len(pr):
+#         break
+    
+# print('\n'.join(upg_pr))
 
-#Set the geometry of tkinter frame
-win.geometry("750x250")
-
-#Create a Text Box
-text= Text(win, width= 50, height= 30, background=
-"gray71",foreground="#fff",font= ('Sans Serif', 13, 'italic bold'))
-
-#Insert the text at the begining
-text.insert(INSERT, "Write Something About Yourself\n\n")
-text.pack(expand= 1, fill= BOTH)
-
-text.insert('0.0', "Игддырше\n\n")
-
-text.insert('1.0', "hhfff\n\n")
-
-win.mainloop()
+k = {1:2}
+# k = list(reversed(k))
+print(k.values())
+# for i,j in enumerate(k):
+#     print(i,j)
