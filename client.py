@@ -53,6 +53,8 @@ class APP(CTk):
         self.id = ''
         self.has_at_server = False # флаг о том, что есть в базе
         self.controling_flag = False
+        self.close_contr = True
+        self.queue_comm_text = None
         
         # текст для терминала
         self.queue_mes = []
@@ -135,8 +137,10 @@ class APP(CTk):
                 self.load_bar.set(0.5)
                 self.load_bar.configure(mode='indeterminate')
                 self.load_bar.start()
-                self.draw_message('Подключение/к серверу')
                 try:
+                    
+                    self.draw_message('Подключение/к серверу')
+                    
                     s.connect((HOST, PORT))
                     
                         
@@ -149,6 +153,9 @@ class APP(CTk):
                     self.draw_message('Кажется, вы указали/неверный код')
                     self. controling_flag = False
                     self.change_frame('no_conn')
+                
+                except RuntimeError:
+                    pass
                 
                 else:
                     if comm == 'open': #Состояние регистрации
@@ -181,6 +188,7 @@ class APP(CTk):
                         if answer == '//rename': # сервер одобрил смену имени
                             self.draw_message('Вы сменили/имя!')
                             self.has_at_server = True
+                            self.change_frame()
                             self.controller()
                         elif answer != '//has': #такого имени нет в списке сервера
                             self.id, date = answer.split('/')
@@ -197,22 +205,52 @@ class APP(CTk):
                         else:
                             self.draw_message('Такое имя уже/занято:(')
                     
+                    elif comm == 'pass':
+                        s.send(f'pass*{self.id}'.encode())
+                        self.controller()
+                        self.draw_message('Вы прошли!')
+
                     elif comm == 'control': # клиент отправляет отчет об открытых прогах
                         # отправляю запрос на отправку вместе с id
+                        self.draw_message('*****')
                         print(self.id)
                         s.send(f'ctrl*{self.id}'.encode())
                         
+                        # получить разрешение
+                        answer = (s.recv(1024)).decode()
                         
                         # отправить отчет
-                        print(data)
-                        s.send(dumps(data))
+                        if answer == '//ok':
+                            print(data)
+                            s.send(dumps(data))
+
+                        # побочные команды
+                        if self.queue_comm_text != None:
+                            print(self.queue_comm_text)
+                            if self.queue_comm_text == 'cls':
+                                with open('last_conn.txt') as file:
+                                    date_client = file.readline()[:-1]
+                                
+                                s.send(f'cls*{date_client}'.encode())
+                                # self.queue_comm_text = None
+                                print('cls_send')
+                        else:
+                            s.send(f'0'.encode())
                         
+                        
+                           
                 finally:
                     self.load_bar.set(1.0)
                     self.load_bar.configure(mode='determinate')
                     self.load_bar.stop()
+                    
+                    if self.queue_comm_text == 'cls': # закрыть прогу
+                        def close():
+                            self.destroy()
+                        self.after(1000,close)
+                    
         
-        
+
         g = Thread(target=data_interchange)
         g.start()
 
@@ -247,6 +285,7 @@ class APP(CTk):
             self.regist_entry.focus()
     
     def pass_regt(self):
+        self.connect_to_server('pass')
         self.draw_message('Вход успешно/был осуществлен')
         
         self.change_frame()
@@ -280,7 +319,8 @@ class APP(CTk):
         
     def controller(self):
         def controling():
-            self. controling_flag = True
+            self.controling_flag = True
+            self.close_contr = False
             
             # запустить контроль
             EnumWindows = ctypes.windll.user32.EnumWindows
@@ -296,10 +336,10 @@ class APP(CTk):
                     GetWindowText(hwnd, buff, length + 1)
                     titles.append(buff.value)
                 return True
-            
-            while self. controling_flag:
+                
+            while self.controling_flag:
                 # отправлять отчет каждые 5 секунд
-                sleep(5) 
+                sleep(2) 
                 
                 titles = []
                 EnumWindows(EnumWindowsProc(foreach_window), 0)
@@ -323,31 +363,47 @@ class APP(CTk):
                 
                 # i = dumps()
                 
+                # создать единную строку
                 self.connect_to_server('control', titles)
-        
-        
+                
+                # закрыть контроллер
+                if self.queue_comm_text == 'cls':
+                    break
         # запустить только один поток
         if self.controling_flag == False:
             controling_thread = Thread(target=controling)
             controling_thread.start()
-            
+    
+    def queue_comm(self, comm = 'cls'): # дать команду в очередь
+        self.queue_comm_text = comm
             
         
     
     
 app = APP()
+
+def on_closing():
+    if app.controling_flag:
+        app.queue_comm()
+    else:
+        app.destroy()    
+
+app.protocol("WM_DELETE_WINDOW", on_closing)
 app.mainloop()
 
 # app.connect_to_server('close')
-app.controling_flag = False
-if app.has_at_server:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        # получить хост и порт
-        with open('HOST_PORT.txt') as file:
-            HOST = file.readline()[:-1]
-            PORT = int(file.readline()[:-1])
-        s.connect((HOST, PORT))
-        s.send(f'cls*{app.id}'.encode())
+# app.controling_flag = False
+# if app.has_at_server:
+#     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+#         # получить хост и порт
+#         with open('HOST_PORT.txt') as file:
+#             HOST = file.readline()[:-1]
+#             PORT = int(file.readline()[:-1])
+        
+#         with open('last_conn.txt') as file:
+#             date = file.readline()[:-1]
+#         s.connect((HOST, PORT))
+#         s.send(f'cls*{app.id}/{date}'.encode())
     
     
     

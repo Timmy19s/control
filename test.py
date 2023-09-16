@@ -1,21 +1,9 @@
-# pr = "1) ValueError: ['sticky']are not    supported arguments. Look at the documentation for supported arguments."
+import datetime
 
-# upg_pr = []
-# i = 0
-# while 1:
-#     # проверяю первый символ - 
-#     while pr[i] == ' ':
-#         i+=1
-#     upg_pr.append(pr[i:i+30])
-#     i += 30
-    
-#     if i >= len(pr):
-#         break
-    
-# print('\n'.join(upg_pr))
+string = '2023-09-16 10:59:09.478888'
 
-k = {1:2}
-# k = list(reversed(k))
-print(k.values())
-# for i,j in enumerate(k):
-#     print(i,j)
+k = datetime.datetime.strptime(string, '%Y-%m-%d %H:%M:%S.%f')
+
+k = (datetime.datetime.now() - k).total_seconds()
+print(k>20)
+# print(k.minute)

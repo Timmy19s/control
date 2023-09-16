@@ -223,7 +223,7 @@ class APP(CTk):
             g.start()
     
     def start_server(self):
-        date = datetime.datetime.today().__str__()
+        date_s = datetime.datetime.today().__str__()
 
         # прочитать порт
         with open('PORT.txt') as P:
@@ -240,19 +240,26 @@ class APP(CTk):
                 server.settimeout(5)
                 # запускаю цикл на ожидание неоднократных подключений
                 self.close_app = False
+                last_time = datetime.datetime.now()
                 while APP.run_server:
                     
-
+                    
                     # ожидать окончания сервера
                     try:
                         conn, addr = server.accept()
+                        
                     except TimeoutError:
                         pass
                     else:
                         with conn:
                             try:
-                                data = (conn.recv(1024)).decode()
-                            except UnicodeDecodeError:
+                                data_row = conn.recv(1024)
+                                data = (data_row).decode()
+                            except UnicodeDecodeError as er:
+                                with open('ff.txt', 'bw') as file:
+                                    file.write(data_row)
+                                print(str(er))
+                                print(addr)
                                 self.draw_message('проблемма с юникодом')
                             else:
                                 comm, data = data.split('*')
@@ -262,7 +269,7 @@ class APP(CTk):
                                     id = int(id)
                                     
                                     # проверяю, сходится ли время сеанса и сущесвование id в списке
-                                    if date == date_client and id in tuple(dict_clients.keys()):
+                                    if date_s == date_client and id in dict_clients:
                                         conn.send('//pass'.encode())
                                     
                                     else: # запросить зарегистрироваться
@@ -278,7 +285,7 @@ class APP(CTk):
                                         if id == 'None': #создаю новое id
                                             # генерирую id
                                             id = len(dict_clients)
-                                            conn.send(f'{id}/{date}'.encode())
+                                            conn.send(f'{id}/{date_s}'.encode())
                                             
                                             self.draw_message(f'{name} присоединился!')
                                             
@@ -289,7 +296,7 @@ class APP(CTk):
                                             conn.send(f'//rename'.encode())
                                             id = int(id)
                                             
-                                            self.draw_message(f'{name} вернулся!')
+                                            self.draw_message(f'{name} вернулся, изменив имя!')
                                             
                                         # добавляю или меняю
                                         dict_clients[id] = name    
@@ -301,9 +308,17 @@ class APP(CTk):
                                             
                                     else:
                                         conn.send('//has'.encode())
-
+                                
+                                elif comm == 'pass':
+                                    # клиет не поменял имя
+                                    id = int(data)
+                                    self.draw_message(f'{dict_clients[id]} вернулся')
+                                    
                                 elif comm == 'ctrl': # клиент отправляет отчет
                                     id = int(data)
+                                    
+                                    # отправить разрешение на отправку
+                                    conn.send('//ok'.encode())
                                     
                                     # получить отчет
                                     data = loads(conn.recv(1024))
@@ -336,7 +351,21 @@ class APP(CTk):
                                     
                                     # сохранить данные
                                     self.save_processes(info_pr, id)
-                                    # сверить время и изменить dict_ctrl
+                                    
+                                    
+                                    # кто пропал
+                                    try:
+                                        if (datetime.datetime.now() - last_time).total_seconds() > 5: # проверять каждые 30 секунд
+                                            last_time = datetime.datetime.now()
+                                            for i in tuple(dict_clients.keys()):
+                                                if self.dict_clients_buttons[i].cget('fg_color') not in ('#cccccc','#dcdcdc'):
+                                                    # проверяю последнее вхождение
+                                                    if time() - self.dict_cntr[i][1]>3: # прошло больше 30 сек с последнего отчета
+                                                        self.draw_message(f'{dict_clients[i]} пропал без вести!')
+                                                        self.dict_clients_buttons[i].configure(fg_color = '#cccccc')
+                                    except Exception as er:
+                                        self.draw_message('Ошибка в поиске потеряшек')
+                                        print(str(er))
                                     # if id in self.dict_cntr:
                                     #     print('ds')
                                         # if self.dict_cntr[id][1] - int(time()) > 30: # не отвечает
@@ -358,11 +387,24 @@ class APP(CTk):
                                     self.data_diag = tuple(all_prs)
                                     self.data_id = (id)
                                     self.after(10, self.update_diag)
-                                    
                                 
-            
-                                elif comm == 'cls': # клиент уведомляет о выключении проги
-                                    self.dict_clients_buttons[int(data)].configure(fg_color='#cccccc')
+                                
+                                    # комманды из списка
+                                    data = (conn.recv(1024)).decode()
+                                    if data != '0':
+                                        try:
+                                            comm, data = data.split('*')
+                                        
+                                            if comm == 'cls': # клиент закрыл приложение
+                                                date_client = data
+                                                # проверяю, сходится ли время сеанса и сущесвование id в списке
+                                                if date_s == date_client and id in dict_clients:
+                                                    self.draw_message(f'{dict_clients[id]} покинул сервер!')
+                                                    self.dict_clients_buttons[id].configure(fg_color='#cccccc')
+                                
+                                        except Exception as er:
+                                            self.draw_message('Ошибка в уведомлении')
+                                            print(str(er))
                                     
             self.close_app = True
 
@@ -370,6 +412,7 @@ class APP(CTk):
         server.start()
         
         self.draw_message('Сервер запущен')
+
 
     def menu_action(self, value):
         # отключить сервер
@@ -434,7 +477,10 @@ class APP(CTk):
             color = '#edff21'
         else: #зеленый
             color ='#32cd32'
-        self.dict_clients_buttons[self.data_id].configure(fg_color = color)
+        
+        # поменять цвет
+        if self.dict_clients_buttons[self.data_id].cget('fg_color') != '#cccccc':
+            self.dict_clients_buttons[self.data_id].configure(fg_color = color)
         
         # диаграммы
         diag_s = (self.statistic_all_diag_g, self.statistic_all_diag_y, self.statistic_all_diag_r)
@@ -457,28 +503,32 @@ class APP(CTk):
         self.after(10,save)
 
     def show_info_pers(self, info_prs = None):
-        def update():
-            nonlocal info_prs
-            info_prs_l = info_prs
+        
+        def update(info_prs = info_prs):
+            
             name = self.dict_clients_buttons[APP.focus_pers].cget('text')
             
             # архивные ли процессы
-            text = f'{name}\n\nПроцессы:' if info_prs_l != None else f'{name}\n\nАрхив:'
+            text = f'{name}\n\nПроцессы:' if info_prs != None else f'{name}\n\nАрхив:'
             self.statistic_persenal_title.configure(text = text)
             
             # подгрузить старые процессы, если info_prs пустой
             
-            if info_prs_l == None:
-                self.cursor.execute('SELECT process FROM PS WHERE id = (?)', (self.focus_pers,))
-                info_prs_l = [[],[i[0] for i in self.cursor.fetchall()],[]]
-                
-                print(info_prs_l)
+            if info_prs == None:
+                # достать плохие, нейтральные, а затем разрешеннные процессы
+                type_p = ['gd','nd','bd']
+                info_prs = []
+                for j in range(3):
+                    self.cursor.execute('SELECT process FROM PS WHERE id = (?) AND type_p = (?)', (self.focus_pers,type_p[j]))
+                    k = [i[0] for i in self.cursor.fetchall()]
+                    info_prs.append(k)
             
             
             # редактировать процессы
             i_t = 1
-            for ind_i,type_i in enumerate(tuple(info_prs_l)):
-                for ind_pr, pr in enumerate(type_i):
+            new_prs = [[],[],[]]
+            for ind_i,type_i in enumerate(tuple(reversed(info_prs))): # пробегаю по типам процессов
+                for pr in type_i: # пробегаю по процессам
                     pr = f'{i_t}) {pr}'
 
                     upg_pr = []
@@ -493,18 +543,20 @@ class APP(CTk):
                         if i >= len(pr):
                             break
 
-                    info_prs_l[ind_i][ind_pr] = '\n'.join(upg_pr)
+                    new_prs[ind_i].append('\n'.join(upg_pr))
                     i_t += 1
             
             # изменить список
-            info_prs_l = list(reversed(info_prs_l))
             labels = (self.statistic_persenal_list_r,self.statistic_persenal_list_y,self.statistic_persenal_list_g)
             for i in range(3):
-                if info_prs_l[i] != []:
-                    text_l = '\n\n'.join(info_prs_l[i])
+                if new_prs[i] != []:
+                    text_l = '\n\n'.join(new_prs[i])
                     labels[i].configure(text = text_l)
+                else:
+                    labels[i].configure(text = '')
 
-        self.after(10, update)
+        if self.dict_clients_buttons[APP.focus_pers].cget('fg_color') != '#dcdcdc':
+            self.after(10, update)
 
     def change_focus(self, id):
         APP.focus_pers = id

@@ -1,4 +1,1 @@
 Program Manager
-client
-socket
-C:\Windows\py.exe
