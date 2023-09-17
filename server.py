@@ -71,7 +71,7 @@ class APP(CTk):
                                                           'Блиц режим',
                                                           'Голосование',
                                                           'Обмен файлами',
-                                                          'Выключить сервер'),
+                                                          'Отключить подключения'),
                                            command=self.menu_action)
         self.menu_tab.set('Главное меню')
         self.menu_tab.grid(row=0,column=0, columnspan = 2, sticky = 'nwe')
@@ -231,6 +231,9 @@ class APP(CTk):
             del(P)
 
         dict_clients = {}
+        
+        # каково задание сервера
+        self.server_task = None
 
         def start():
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
@@ -355,12 +358,12 @@ class APP(CTk):
                                     
                                     # кто пропал
                                     try:
-                                        if (datetime.datetime.now() - last_time).total_seconds() > 5: # проверять каждые 30 секунд
+                                        if (datetime.datetime.now() - last_time).total_seconds() > 20: # проверять каждые 20 секунд
                                             last_time = datetime.datetime.now()
                                             for i in tuple(dict_clients.keys()):
                                                 if self.dict_clients_buttons[i].cget('fg_color') not in ('#cccccc','#dcdcdc'):
                                                     # проверяю последнее вхождение
-                                                    if time() - self.dict_cntr[i][1]>3: # прошло больше 30 сек с последнего отчета
+                                                    if int(time()) - self.dict_cntr[i][1]>15: # прошло больше 15 сек с последнего отчета
                                                         self.draw_message(f'{dict_clients[i]} пропал без вести!')
                                                         self.dict_clients_buttons[i].configure(fg_color = '#cccccc')
                                     except Exception as er:
@@ -406,6 +409,13 @@ class APP(CTk):
                                             self.draw_message('Ошибка в уведомлении')
                                             print(str(er))
                                     
+                                    
+                                    # отправить задачу клиенту
+                                    if self.server_task == None:
+                                        conn.send('0'.encode())
+                                    else:
+                                        conn.send(self.server_task.encode())
+                                    
             self.close_app = True
 
         server = Thread(target=start)
@@ -416,9 +426,9 @@ class APP(CTk):
 
     def menu_action(self, value):
         # отключить сервер
-        if value == 'Выключить сервер':
-            self.draw_message('Идет выключение сервера...')
-            APP.run_server = False
+        if value == 'Отключить подключения':
+            self.draw_message('Идет отключение...')
+            self.server_task = 'cls'
     
     def update_DB(self, type_act):
         

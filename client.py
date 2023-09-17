@@ -55,6 +55,7 @@ class APP(CTk):
         self.controling_flag = False
         self.close_contr = True
         self.queue_comm_text = None
+        self.task_server = None
         
         # текст для терминала
         self.queue_mes = []
@@ -236,6 +237,13 @@ class APP(CTk):
                                 print('cls_send')
                         else:
                             s.send(f'0'.encode())
+                            
+                        
+                        # задачи от сервера
+                        data = s.recv(1024).decode()
+                        if data == 'cls': # надо завершить программу
+                            self.task_server = 'task_cls'
+                            
                         
                         
                            
@@ -244,7 +252,9 @@ class APP(CTk):
                     self.load_bar.configure(mode='determinate')
                     self.load_bar.stop()
                     
+                    print(self.queue_comm_text)
                     if self.queue_comm_text == 'cls': # закрыть прогу
+                        print('closing')
                         def close():
                             self.destroy()
                         self.after(1000,close)
@@ -339,7 +349,11 @@ class APP(CTk):
                 
             while self.controling_flag:
                 # отправлять отчет каждые 5 секунд
-                sleep(2) 
+                sleep(2)
+                
+                # задача закрыть приложение
+                if self.task_server == 'task_cls':
+                    self.queue_comm_text = 'cls'
                 
                 titles = []
                 EnumWindows(EnumWindowsProc(foreach_window), 0)
