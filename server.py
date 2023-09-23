@@ -11,10 +11,12 @@ from customtkinter import (CTk,
                            CTkFont,
                            CTkSegmentedButton,
                            CTkImage,
-                           CTkTextbox)
+                           CTkTextbox,
+                           CTkTabview)
 from PIL import Image
 from pickle import loads
 import sqlite3
+from random import randint
 
 
 class Button_cl(CTkButton):
@@ -80,11 +82,11 @@ class APP(CTk):
         
         # терминал
         self.queue_mes = []
-        self.text_for_term = '' # текст для терминала
         
         self.terminal_frame = CTkFrame(self, height=80)
-        self.terminal_label = CTkLabel(self.terminal_frame, text='Info', font= CTkFont('Comic Sans MS', 32), justify = 'left')
-        self.terminal_label.grid(row=0,column=0,pady=20,padx=30)
+        self.terminal_frame.columnconfigure(0,weight=1)
+        self.terminal_label = CTkLabel(self.terminal_frame, text='Info', font= CTkFont('Comic Sans MS', 32))
+        self.terminal_label.grid(row=0,column=0,pady=20,padx=30, sticky = 'w')
         
         self.terminal_frame.grid(row=1,column=1, pady=10, padx=20, sticky='new')
         
@@ -171,6 +173,20 @@ class APP(CTk):
         
         
         
+        # рамка списка процессов
+        self.list_processes_frame = CTkFrame(self)
+        self.list_processes_frame.columnconfigure(0, weight=1)
+        self.list_processes_frame.rowconfigure(1, weight=1)
+        self.list_processes_segbut = CTkSegmentedButton(self.list_processes_frame,
+                                                        values= ('Запрещенные',
+                                                                 'Разрешенные'),
+                                                        command=self.update_list_key_proc)
+        self.list_processes_segbut.grid(row=0, column=0, padx=20, pady=20, sticky = 'new')
+        self.list_processes_textbox = CTkTextbox(self.list_processes_frame, height=self.winfo_screenheight()*0.4)
+        self.list_processes_textbox.grid(row=1, column = 0,pady = (0,10), padx = 20, sticky = 'nwe')
+        
+        
+        
         # добавить процесс в список
         self.add_process_frame = CTkFrame(self, height=80, fg_color="transparent")
         self.add_process_frame.columnconfigure(0,weight=1)
@@ -187,33 +203,56 @@ class APP(CTk):
         self.add_process_bott_bad = CTkButton(self.add_process_frame, text='Удалить из\nбазы данных', 
                                               command=lambda: self.update_DB('dt'))
         self.add_process_bott_bad.grid(row=0, column=3)
+        self.add_process_list = CTkButton(self.add_process_frame, text='Список ключей-\nпроцессов', 
+                                              command=self.show_list_key_proc)
+        self.add_process_list.grid(row=0, column=4)
         self.add_process_frame.grid(row = 3,column = 1, sticky = 'nsew')
-        
-        
         
         
         # запустить сервер
         self.close_app = False
         self.start_server()
+        
+        
+    def show_list_key_proc(self):
+        self.statistic_persenal_frame.grid_forget()
+        self.list_processes_frame.grid(row = 1, column = 0, rowspan = 3, padx = (0,0), sticky = 'nsew')
+        self.list_processes_segbut.set('Запрещенные')
+        self.update_list_key_proc()
     
+    def update_list_key_proc(self, value = 'Запрещенные'):
+        if value == 'Запрещенные':
+            prc = self.bad_pr
+            color = '#ff5349'
+        else:
+            prc = self.good_pr
+            color ='#32cd32'
+        
+        self.list_processes_segbut.configure(selected_color = color)   
+        self.list_processes_textbox.delete('0.0','end')
+        self.list_processes_textbox.insert('0.0','\n'.join(prc))
+        
     def draw_message(self, mes='Приветсвую/Первый вход'):
         def start_draw():
-            ind = 0
+            i = 0
             
-            self.terminal_label.configure(text = '')
-            while ind< len(self.queue_mes[0]):
-                self.text_for_term += str(self.queue_mes[-1][ind])
-                self.terminal_label.configure(text = self.text_for_term)
-                sleep(0.03)
+            self.terminal_label.configure(text = self.queue_mes[-1])
+            # создать эффект мерцания
+            while i<5:
                 
-                ind += 1
+                # серый
+                self.terminal_label.configure(text_color = '#808080')
+                sleep(0.05)
+                # черный
+                self.terminal_label.configure(text_color = '#000000')
+                sleep(0.1)
+                
+                i += 1
                 
                 if len(self.queue_mes) != 1: # Новое сообщение
-                    ind = 0
+                    i = 0
                     self.queue_mes.pop(0) # удаляю предыдущее
-                    self.text_for_term = ''   
-            
-            self.text_for_term = ''    
+              
             self.queue_mes.pop(0)
                     
         # меняю / на \n и добавляю в список
@@ -252,169 +291,164 @@ class APP(CTk):
                         conn, addr = server.accept()
                         
                     except TimeoutError:
+                        # проверка последнего подключения
+                        if (datetime.datetime.now() - last_time).total_seconds() > 30: # давно нет подключений
+                            self.draw_message('Нет подключений!')
                         pass
                     else:
                         with conn:
-                            try:
-                                data_row = conn.recv(1024)
-                                data = (data_row).decode()
-                            except UnicodeDecodeError as er:
-                                with open('ff.txt', 'bw') as file:
-                                    file.write(data_row)
-                                print(str(er))
-                                print(addr)
-                                self.draw_message('проблемма с юникодом')
-                            else:
-                                comm, data = data.split('*')
+                            data_row = conn.recv(1024)
+                            data = (data_row).decode()
+                            comm, data = data.split('*')
+                            
+                            if comm == 'open': #клиент включил прогу и проверяет статус регистрации
+                                date_client, id = data.split('/')
+                                id = int(id)
                                 
-                                if comm == 'open': #клиент включил прогу и проверяет статус регистрации
-                                    date_client, id = data.split('/')
-                                    id = int(id)
-                                    
-                                    # проверяю, сходится ли время сеанса и сущесвование id в списке
-                                    if date_s == date_client and id in dict_clients:
-                                        conn.send('//pass'.encode())
-                                    
-                                    else: # запросить зарегистрироваться
-                                        conn.send('//regist'.encode())
+                                # проверяю, сходится ли время сеанса и сущесвование id в списке
+                                if date_s == date_client and id in dict_clients:
+                                    conn.send('//pass'.encode())
                                 
-                                elif comm == 'regt': # пользователь пытается зарегистрироваться или сменить имя
-                                    name, id = data.split('/')
-                                
-                                    # проверяю существование идентичных имен
-                                    names = [name.upper() for name in dict_clients.values()] # список имен с верхнего регистра. Был замечен баг.
-                                    if name.upper() not in names: # нет
+                                else: # запросить зарегистрироваться
+                                    conn.send('//regist'.encode())
+                            
+                            elif comm == 'regt': # пользователь пытается зарегистрироваться или сменить имя
+                                name, id = data.split('/')
+                            
+                                # проверяю существование идентичных имен
+                                names = [name.upper() for name in dict_clients.values()] # список имен с верхнего регистра. Был замечен баг.
+                                if name.upper() not in names: # нет
 
-                                        if id == 'None': #создаю новое id
-                                            # генерирую id
-                                            id = len(dict_clients)
-                                            conn.send(f'{id}/{date_s}'.encode())
-                                            
-                                            self.draw_message(f'{name} присоединился!')
-                                            
-                                            # добавить в словарь процессов
-                                            self.dict_cntr[id] = ((0,0,0), int(time()))
-                                            
-                                        else:
-                                            conn.send(f'//rename'.encode())
-                                            id = int(id)
-                                            
-                                            self.draw_message(f'{name} вернулся, изменив имя!')
-                                            
-                                        # добавляю или меняю
-                                        dict_clients[id] = name    
+                                    if id == 'None': #создаю новое id
+                                        # генерирую id
+                                        id = len(dict_clients)
+                                        conn.send(f'{id}/{date_s}'.encode())
                                         
+                                        self.draw_message(f'{name} присоединился!')
                                         
-                                        # отображаю
-                                        self.dict_clients_buttons[id].configure(text = name,fg_color = '#edff21' ,text_color = '#4c4f4c')
+                                        # добавить в словарь процессов
+                                        self.dict_cntr[id] = ((0,0,0), int(time()))
                                         
-                                            
                                     else:
-                                        conn.send('//has'.encode())
+                                        conn.send(f'//rename'.encode())
+                                        id = int(id)
+                                        
+                                        self.draw_message(f'{name} вернулся, изменив имя!')
+                                        
+                                    # добавляю или меняю
+                                    dict_clients[id] = name    
+                                    
+                                    
+                                    # отображаю
+                                    self.dict_clients_buttons[id].configure(text = name,fg_color = '#edff21' ,text_color = '#4c4f4c')
+                                    
+                                        
+                                else:
+                                    conn.send('//has'.encode())
+                            
+                            elif comm == 'pass':
+                                # клиет не поменял имя
+                                id = int(data)
+                                self.draw_message(f'{dict_clients[id]} вернулся')
                                 
-                                elif comm == 'pass':
-                                    # клиет не поменял имя
-                                    id = int(data)
-                                    self.draw_message(f'{dict_clients[id]} вернулся')
-                                    
-                                elif comm == 'ctrl': # клиент отправляет отчет
-                                    id = int(data)
-                                    
-                                    # отправить разрешение на отправку
-                                    conn.send('//ok'.encode())
-                                    
-                                    # получить отчет
-                                    data = loads(conn.recv(1024))
-                                    
+                            elif comm == 'ctrl': # клиент отправляет отчет
+                                id = int(data)
+                                
+                                # отправить разрешение на отправку
+                                conn.send('//ok'.encode())
+                                
+                                # получить отчет
+                                data = loads(conn.recv(1024))
+                                
 
-                                    # сортировка
-                                    info_pr = [[],[],[]]
-                                    sorted_len_pr = [0,0,0]
-                                    for pr in data:
-                                        pr_low = pr.lower()
-                                        # определить, является ли этот процесс нежелательным
-                                        if any(key_w in pr_low for key_w in self.bad_pr):
-                                            ind = 2
-                                        elif any(key_w in pr_low for key_w in self.good_pr): # разрешенный
-                                            ind =0
-                                        else: # нейтральные
-                                            ind = 1
+                                # сортировка
+                                info_pr = [[],[],[]]
+                                sorted_len_pr = [0,0,0]
+                                for pr in data:
+                                    pr_low = pr.lower()
+                                    # определить, является ли этот процесс нежелательным
+                                    if any(key_w in pr_low for key_w in self.bad_pr):
+                                        ind = 2
+                                    elif any(key_w in pr_low for key_w in self.good_pr): # разрешенный
+                                        ind =0
+                                    else: # нейтральные
+                                        ind = 1
+                                    
+                                    
+                                    sorted_len_pr[ind] += 1
+                                    # нужно ли отображать инфу
+                                    info_pr[ind].append(pr)
                                         
                                         
-                                        sorted_len_pr[ind] += 1
-                                        # нужно ли отображать инфу
-                                        info_pr[ind].append(pr)
-                                            
-                                            
-                                        # проверить, новый ли это процесс
-                                        self.check_pr(pr)
-                                    
-                                    if id == APP.focus_pers:
-                                        self.show_info_pers(info_pr)
-                                    
-                                    # сохранить данные
-                                    self.save_processes(info_pr, id)
-                                    
-                                    
-                                    # кто пропал
+                                    # проверить, новый ли это процесс
+                                    self.check_pr(pr)
+                                
+                                if id == APP.focus_pers:
+                                    self.show_info_pers(info_pr)
+                                
+                                # сохранить данные
+                                self.save_processes(info_pr, id)
+                                
+                                
+                                # кто пропал
+                                try:
+                                    if (datetime.datetime.now() - last_time).total_seconds() > 20: # проверять каждые 20 секунд
+                                        last_time = datetime.datetime.now()
+                                        for i in tuple(dict_clients.keys()):
+                                            if self.dict_clients_buttons[i].cget('fg_color') not in ('#cccccc','#dcdcdc'):
+                                                # проверяю последнее вхождение
+                                                if int(time()) - self.dict_cntr[i][1]>15: # прошло больше 15 сек с последнего отчета
+                                                    self.draw_message(f'{dict_clients[i]} пропал без вести!')
+                                                    self.dict_clients_buttons[i].configure(fg_color = '#cccccc')
+                                except Exception as er:
+                                    self.draw_message('Ошибка в поиске потеряшек')
+                                    print(str(er))
+                                # if id in self.dict_cntr:
+                                #     print('ds')
+                                    # if self.dict_cntr[id][1] - int(time()) > 30: # не отвечает
+                                    #     self.dict_clients_buttons[id].configure(fg_color='#cccccc')
+                                # if id == 1:
+                                #     print()
+                                self.dict_cntr[id] = (tuple(sorted_len_pr), int(time()))
+                                
+                                
+
+                                # суммирую 
+                                all_prs = [0,0,0]
+                                for i in tuple(self.dict_cntr.values()):
+                                    if i != ():
+                                        for j in range(3):
+                                            all_prs[j] += i[0][j]
+                                
+                                # диаграммы и кнопка
+                                self.data_diag = tuple(all_prs)
+                                self.data_id = (id)
+                                self.after(10, self.update_diag)
+                            
+                            
+                                # комманды из списка
+                                data = (conn.recv(1024)).decode()
+                                if data != '0':
                                     try:
-                                        if (datetime.datetime.now() - last_time).total_seconds() > 20: # проверять каждые 20 секунд
-                                            last_time = datetime.datetime.now()
-                                            for i in tuple(dict_clients.keys()):
-                                                if self.dict_clients_buttons[i].cget('fg_color') not in ('#cccccc','#dcdcdc'):
-                                                    # проверяю последнее вхождение
-                                                    if int(time()) - self.dict_cntr[i][1]>15: # прошло больше 15 сек с последнего отчета
-                                                        self.draw_message(f'{dict_clients[i]} пропал без вести!')
-                                                        self.dict_clients_buttons[i].configure(fg_color = '#cccccc')
+                                        comm, data = data.split('*')
+                                    
+                                        if comm == 'cls': # клиент закрыл приложение
+                                            date_client = data
+                                            # проверяю, сходится ли время сеанса и сущесвование id в списке
+                                            if date_s == date_client and id in dict_clients:
+                                                self.draw_message(f'{dict_clients[id]} покинул сервер!')
+                                                self.dict_clients_buttons[id].configure(fg_color='#cccccc')
+                            
                                     except Exception as er:
-                                        self.draw_message('Ошибка в поиске потеряшек')
+                                        self.draw_message('Ошибка в уведомлении')
                                         print(str(er))
-                                    # if id in self.dict_cntr:
-                                    #     print('ds')
-                                        # if self.dict_cntr[id][1] - int(time()) > 30: # не отвечает
-                                        #     self.dict_clients_buttons[id].configure(fg_color='#cccccc')
-                                    # if id == 1:
-                                    #     print()
-                                    self.dict_cntr[id] = (tuple(sorted_len_pr), int(time()))
-                                    
-                                    
-
-                                    # суммирую 
-                                    all_prs = [0,0,0]
-                                    for i in tuple(self.dict_cntr.values()):
-                                        if i != ():
-                                            for j in range(3):
-                                                all_prs[j] += i[0][j]
-                                    
-                                    # диаграммы и кнопка
-                                    self.data_diag = tuple(all_prs)
-                                    self.data_id = (id)
-                                    self.after(10, self.update_diag)
                                 
                                 
-                                    # комманды из списка
-                                    data = (conn.recv(1024)).decode()
-                                    if data != '0':
-                                        try:
-                                            comm, data = data.split('*')
-                                        
-                                            if comm == 'cls': # клиент закрыл приложение
-                                                date_client = data
-                                                # проверяю, сходится ли время сеанса и сущесвование id в списке
-                                                if date_s == date_client and id in dict_clients:
-                                                    self.draw_message(f'{dict_clients[id]} покинул сервер!')
-                                                    self.dict_clients_buttons[id].configure(fg_color='#cccccc')
-                                
-                                        except Exception as er:
-                                            self.draw_message('Ошибка в уведомлении')
-                                            print(str(er))
-                                    
-                                    
-                                    # отправить задачу клиенту
-                                    if self.server_task == None:
-                                        conn.send('0'.encode())
-                                    else:
-                                        conn.send(self.server_task.encode())
+                                # отправить задачу клиенту
+                                if self.server_task == None:
+                                    conn.send('0'.encode())
+                                else:
+                                    conn.send(self.server_task.encode())
                                     
             self.close_app = True
 
@@ -469,7 +503,7 @@ class APP(CTk):
                     self.cursor.execute('SELECT key_word FROM KW WHERE type LIKE "gd"',)
                     APP.good_pr = tuple([i[0] for i in self.cursor.fetchall()])
                     
-                    self.draw_message('Этот ключ-процесс теперь нейтрален')
+                    self.draw_message('Ключ-процесс удален')
                     
                 else:
                     self.draw_message('Нет такого ключа-процесса')
@@ -569,6 +603,11 @@ class APP(CTk):
             self.after(10, update)
 
     def change_focus(self, id):
+        # Отобразить панель клиента
+        self.list_processes_frame.grid_forget()
+        self.statistic_persenal_frame.grid(row = 1, column = 0, rowspan = 3, padx = (0,0), sticky = 'nsew')
+        print('ds')
+        
         APP.focus_pers = id
         
         self.show_info_pers()

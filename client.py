@@ -304,22 +304,25 @@ class APP(CTk):
         code = self.no_conn_entry.get()
         
         if code.isdigit(): # состоит из цифр
-            # открываю файл с хостом и портом
-            with open('HOST_PORT.txt') as file:
-                HOST = file.readline()[:-1]
-                PORT = int(file.readline()[:-1]) # порт менять не буду
-                
-                # ищу индекс последней точки
-                ind = HOST.rfind('.')
-                HOST = HOST[:ind+1] + code
-        
-            # меняю хост
-            with open('HOST_PORT.txt', 'w') as file:
-                for i in (HOST, PORT):
-                    file.write(f'{i}\n')
+            if len(code) < 4: # максимум 3-значное число
+                # открываю файл с хостом и портом
+                with open('HOST_PORT.txt') as file:
+                    HOST = file.readline()[:-1]
+                    PORT = int(file.readline()[:-1]) # порт менять не буду
+                    
+                    # ищу индекс последней точки
+                    ind = HOST.rfind('.')
+                    HOST = HOST[:ind+1] + code
             
-            self.change_frame()
-            self.connect_to_server()
+                # меняю хост
+                with open('HOST_PORT.txt', 'w') as file:
+                    for i in (HOST, PORT):
+                        file.write(f'{i}\n')
+                
+                self.change_frame()
+                self.connect_to_server()
+            else:
+                self.draw_message('Код должен содержать\nмаксимум 3 знака!')
                 
                 
             
@@ -395,7 +398,6 @@ class APP(CTk):
     
     
 app = APP()
-
 def on_closing():
     if app.controling_flag:
         app.queue_comm()
