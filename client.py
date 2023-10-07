@@ -5,7 +5,8 @@ from customtkinter import (CTk,
                            CTkButton,
                            CTkEntry,
                            CTkFont,
-                           CTkScrollableFrame)
+                           CTkScrollableFrame,
+                           END)
 from threading import Thread
 from time import sleep
 import socket
@@ -37,6 +38,7 @@ class APP(CTk):
         untraceable_prs = ['',] # пустой процесс тоже есть в списке программ
         for i in file:
             untraceable_prs.append(i[:-1])
+            
     
     def __init__(self):
         super().__init__()
@@ -48,12 +50,14 @@ class APP(CTk):
         # позволить растягиваться по горизонтали
         self.grid_columnconfigure(0, weight=1)
         
-        
+        # id и date
+        with open('last_conn.txt') as file:
+            self.date = file.readline()[:-1]
+            self.id = file.readline()[:-1]
+            
         # для socket
-        self.id = ''
         self.has_at_server = False # флаг о том, что есть в базе
         self.controling_flag = False
-        self.close_contr = True
         self.queue_comm_text = None
         self.task_server = None
         
@@ -81,8 +85,6 @@ class APP(CTk):
         self.regist_frame = Frames(self, 'regist', (0,1),0)
         self.regist_button_add = CTkButton(self.regist_frame, text = 'отправить', font = self.font, command=self.regist)
         self.regist_button_add.grid(row=1,column=1,pady=(0,30),padx=20, sticky = 'se')
-        self.regist_button_next = CTkButton(self.regist_frame, text = 'дальше', font = self.font, command=self.pass_regt)
-        self.regist_button_next.grid(row=1,column=0,pady=(0,30),padx=20, sticky = 'se')
         self.regist_entry = CTkEntry(self.regist_frame, placeholder_text='Введите ваше имя', font = self.font)
         self.regist_entry.grid(row=0,column=0,pady=10,padx=20, columnspan=2, sticky = 'we')
         
@@ -124,13 +126,88 @@ class APP(CTk):
             g.start()
 
     def connect_to_server(self, comm = 'open', data = None):
-        def data_interchange(data = data):
+        def data_interchange(s, data = None):
+            def send(string):
+                s.send(string.encode())
+            def recive():
+                return (s.recv(1024)).decode()
+            
+            
+            # отправить время и id
+            send(f'{self.date}/{self.id}')
+            
+            # получаю результат
+            unswer = recive()
+            if unswer == 'rgst': # требуется регистрация    
+                if comm == 'regist':
+                    # отправить имя
+                    self.focus()
+                    send(self.regist_entry.get())
+                    
+                    # ответ сервера
+                    answer = recive()
+                    if answer != '//has': #такого имени нет в списке сервера
+                        self.id, self.date = answer.split('/')
+                        # записываю в файл
+                        with open('last_conn.txt','w') as file:
+                            file.write(f'{self.date}\n')
+                            file.write(f'{self.id}\n')
+
+                        # переход
+                        self.draw_message('Вы/зарегестрированы!')
+                        self.change_frame()
+                        self.has_at_server = True
+                        self.controller()
+                    else:
+                        self.draw_message('Такое имя уже/занято:(')
+
+                else:
+                    send('//ok')
+                    self.change_frame('regist')
+                    self.regist_entry.delete(0, END)
+                    # закрыть контроллер
+                    self.controling_flag = False
+                    
+                    
+                    # регистрация
+                    self.draw_message('Требуется/регистрация!')
+                    
+            elif comm == 'open': # если клиент вернулся в базу
+                self.draw_message('Вы вернулись!')
+            
+                self.change_frame()
+                self.has_at_server = True
+                self.controller()
+                  
+            else: # другие случаи
+                # отправляю отчет
+                self.draw_message('*****')
+                s.send(dumps(data))
+
+
+
+                # побочные команды
+                if self.queue_comm_text != None:
+                    if self.queue_comm_text == 'cls':
+                        
+                        send('cls')
+                else:
+                    send('0')
+                    
+                
+                
+                # задачи от сервера
+                data = s.recv(1024).decode()
+                if data == 'cls': # надо завершить программу
+                    self.task_server = 'task_cls'
+                        
+        
+        def connection(data = data):
             # получить хост и порт
             with open('HOST_PORT.txt') as file:
                 HOST = file.readline()[:-1]
                 PORT = int(file.readline()[:-1])
                 
-            # print(date)
                 
             # подключиться к серверу
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -141,7 +218,6 @@ class APP(CTk):
                 try:
                     
                     self.draw_message('Подключение/к серверу')
-                    
                     s.connect((HOST, PORT))
                     
                         
@@ -159,91 +235,7 @@ class APP(CTk):
                     pass
                 
                 else:
-                    if comm == 'open': #Состояние регистрации
-                        # время последнего подключения
-                        with open('last_conn.txt') as file:
-                            date = file.readline()[:-1]
-                            self.id = file.readline()[:-1]
-                            
-                            s.send(f'open*{date}/{self.id}'.encode())
-                            
-                            #получаю ответ сервера
-                            data = s.recv(1024).decode()
-                            if data == '//regist': #нужно регистрироваться
-                                self.draw_message('Требуется/регистрация')
-                                self.regist_button_next.grid_forget()
-                            else:
-                                self.draw_message('Вы есть в базе!/Ваше имя может/быть изменено')
-                                
-                                
-                            self.change_frame('regist')
-                    
-                    elif comm == 'regist': # запрос на регистрацию
-                        # определить, регистрация или смена имени
-                        data = f"{self.regist_entry.get()}/{self.id if self.regist_button_next.winfo_ismapped() else None}"
-                        
-                        # отправить запрос на регистрацию
-                        s.send(f'regt*{data}'.encode())
-                        
-                        answer = s.recv(1024).decode()
-                        if answer == '//rename': # сервер одобрил смену имени
-                            self.draw_message('Вы сменили/имя!')
-                            self.has_at_server = True
-                            self.change_frame()
-                            self.controller()
-                        elif answer != '//has': #такого имени нет в списке сервера
-                            self.id, date = answer.split('/')
-                            # записываю в файл
-                            with open('last_conn.txt','w') as file:
-                                file.write(f'{date}\n')
-                                file.write(f'{self.id}\n')
-
-                            # переход
-                            self.draw_message('Вы/зарегестрированы!')
-                            self.change_frame()
-                            self.has_at_server = True
-                            self.controller()
-                        else:
-                            self.draw_message('Такое имя уже/занято:(')
-                    
-                    elif comm == 'pass':
-                        s.send(f'pass*{self.id}'.encode())
-                        self.controller()
-                        self.draw_message('Вы прошли!')
-
-                    elif comm == 'control': # клиент отправляет отчет об открытых прогах
-                        # отправляю запрос на отправку вместе с id
-                        self.draw_message('*****')
-                        print(self.id)
-                        s.send(f'ctrl*{self.id}'.encode())
-                        
-                        # получить разрешение
-                        answer = (s.recv(1024)).decode()
-                        
-                        # отправить отчет
-                        if answer == '//ok':
-                            print(data)
-                            s.send(dumps(data))
-
-                        # побочные команды
-                        if self.queue_comm_text != None:
-                            print(self.queue_comm_text)
-                            if self.queue_comm_text == 'cls':
-                                with open('last_conn.txt') as file:
-                                    date_client = file.readline()[:-1]
-                                
-                                s.send(f'cls*{date_client}'.encode())
-                                # self.queue_comm_text = None
-                                print('cls_send')
-                        else:
-                            s.send(f'0'.encode())
-                            
-                        
-                        # задачи от сервера
-                        data = s.recv(1024).decode()
-                        if data == 'cls': # надо завершить программу
-                            self.task_server = 'task_cls'
-                            
+                    data_interchange(s, data)        
                         
                         
                            
@@ -252,16 +244,14 @@ class APP(CTk):
                     self.load_bar.configure(mode='determinate')
                     self.load_bar.stop()
                     
-                    print(self.queue_comm_text)
                     if self.queue_comm_text == 'cls': # закрыть прогу
-                        print('closing')
                         def close():
                             self.destroy()
                         self.after(1000,close)
                     
         
 
-        g = Thread(target=data_interchange)
+        g = Thread(target=connection)
         g.start()
 
     def change_frame(self, name=None):
@@ -333,7 +323,6 @@ class APP(CTk):
     def controller(self):
         def controling():
             self.controling_flag = True
-            self.close_contr = False
             
             # запустить контроль
             EnumWindows = ctypes.windll.user32.EnumWindows
@@ -352,7 +341,11 @@ class APP(CTk):
                 
             while self.controling_flag:
                 # отправлять отчет каждые 5 секунд
-                sleep(2)
+                sleep(5)
+                
+                # спустя 5 секунд проверить флаг
+                if self.controling_flag == False:
+                    break
                 
                 # задача закрыть приложение
                 if self.task_server == 'task_cls':
