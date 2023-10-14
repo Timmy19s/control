@@ -88,16 +88,28 @@ class APP(CTk):
         self.regist_entry = CTkEntry(self.regist_frame, placeholder_text='Введите ваше имя', font = self.font)
         self.regist_entry.grid(row=0,column=0,pady=10,padx=20, columnspan=2, sticky = 'we')
         
-        # self.regist_frame.grid(row=1, column=0, pady = (0,20), padx=20, sticky='we')
         
+        
+        # нет подключения
         self.no_conn_frame = Frames(self,'no_conn', 0, (0,1))
         self.no_conn_button = CTkButton(self.no_conn_frame, text = 'поменять', font = self.font, command=self.change_host)
         self.no_conn_button.grid(row=0,column=1,pady=30,padx=20, sticky = 'se')
         self.no_conn_entry = CTkEntry(self.no_conn_frame, placeholder_text='Код', font = self.font, width=60)
         self.no_conn_entry.grid(row=0,column=0,pady=30,padx=20, sticky = 's')
         
+        
+        
+        # Блиц
+        self.blitz_frame = Frames(self, 'blitz',0,0)
+        self.blitz_button = CTkButton(self.blitz_frame, text = 'Покинуть\nочередь', command= self.blitz) #Встать\nв очередь
+        self.blitz_button.grid(row=0, column = 0, pady=20, padx=20, sticky = 'se')
+        
+        # self.draw_message('Вы можете встать/в очередь')
+        # self.draw_message('Вы покинули\nблиц')
+        # self.draw_message(f'В {14} в очереди')
+        # self.change_frame('blitz')
+        
         self.connect_to_server()
-        # self.change_frame('regist')
      
     def draw_message(self, mes='Приветсвую/Первый вход'):
         def start_draw():
@@ -125,6 +137,10 @@ class APP(CTk):
             g = Thread(target=start_draw)
             g.start()
 
+    def blitz(self):
+        if self.blitz_button.cget('text') == 'Встать\nв очередь' and self.queue_comm_text != 'cls':
+            self.queue_comm_text = 'blz_in'
+    
     def connect_to_server(self, comm = 'open', data = None):
         def data_interchange(s, data = None):
             def send(string):
@@ -186,6 +202,9 @@ class APP(CTk):
 
 
 
+                # получить next
+                recive()
+
                 # побочные команды
                 if self.queue_comm_text != None:
                     if self.queue_comm_text == 'cls':
@@ -196,11 +215,25 @@ class APP(CTk):
                     
                 
                 
-                # задачи от сервера
+                # стадия сервера
                 data = s.recv(1024).decode()
                 if data == 'cls': # надо завершить программу
                     self.task_server = 'task_cls'
+                elif 'blz' in data:
+                    d, id = data.split('/')
+                    
+                    # при надобности развернуть рамку
+                    if self.blitz_frame.winfo_ismapped() == 0:
+                        self.change_frame('blitz')
+                    
+                    
+                    # есть ли в базе
+                    if id != '0':
+                        self.draw_message('Tcnm')
+                    else:
+                        self.draw_message('Вы можете\nвстать в очередь')
                         
+                        self.blitz_button.configure(text = 'Встать\nв очередь')
         
         def connection(data = data):
             # получить хост и порт
@@ -341,7 +374,7 @@ class APP(CTk):
                 
             while self.controling_flag:
                 # отправлять отчет каждые 5 секунд
-                sleep(5)
+                sleep(1)
                 
                 # спустя 5 секунд проверить флаг
                 if self.controling_flag == False:

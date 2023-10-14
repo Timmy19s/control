@@ -54,6 +54,10 @@ class APP(CTk):
     cursor.execute('SELECT key_word FROM KW WHERE type LIKE "gd"',)
     good_pr = tuple([i[0] for i in cursor.fetchall()])
     
+    
+    # очередь
+    queue = []
+    
     def __init__(self):
         super().__init__()
         
@@ -71,13 +75,13 @@ class APP(CTk):
         
         
         # панель задач
-        self.menu_tab = CTkSegmentedButton(self, height=40, values= ('Главное меню',
+        self.menu_tab = CTkSegmentedButton(self, height=40, values= ('Главный экран',
                                                           'Блиц режим',
                                                           'Голосование',
                                                           'Обмен файлами',
                                                           'Отключить подключения'),
                                            command=self.menu_action)
-        self.menu_tab.set('Главное меню')
+        self.menu_tab.set('Главный экран')
         self.menu_tab.grid(row=0,column=0, columnspan = 2, sticky = 'nwe')
         
         
@@ -174,9 +178,14 @@ class APP(CTk):
             row = i//4
             col = i%4
             self.dict_clients_buttons[i].grid(row=row,column=col)
-        self.clients_frame.grid(row=2,column=1, sticky='nsew')    
+        self.clients_frame.grid(row=2,column=1, sticky='nsew', pady=20, padx=20)
         
         
+        
+        # блиц режим
+        self.blitz_frame = CTkFrame(self)
+        self.blitz_label = CTkLabel(self.blitz_frame, text= '1)\n2)\n3)\n4)', font= CTkFont('Comic Sans MS', 72))
+        self.blitz_label.grid(row=0,column=0, pady=20, padx=40)
         
         # рамка списка процессов
         self.list_processes_frame = CTkFrame(self)
@@ -215,12 +224,12 @@ class APP(CTk):
         # нижняя панель действий
         self.down_panele = CTkFrame(self, height=80, fg_color="transparent")
         self.down_panele.columnconfigure(0,weight=1)
-        self.add_process_list = CTkButton(self.down_panele, text='Образовать\nгруппу', 
-                                              command=self.show_list_key_proc)
-        self.add_process_list.grid(row=0, column=3, padx=20)
-        self.add_process_list = CTkButton(self.down_panele, text='Список ключей-\nпроцессов', 
-                                              command=self.show_list_key_proc)
-        self.add_process_list.grid(row=0, column=4)
+        self.down_panele_but_m = CTkButton(self.down_panele, text='Образовать\nгруппу', 
+                                              command=lambda: self.down_but_comm(self.down_panele_but_m))
+        self.down_panele_but_m.grid(row=0, column=3, padx=20)
+        self.down_panele_but_r = CTkButton(self.down_panele, text='Список ключей-\nпроцессов', 
+                                              command=lambda: self.down_but_comm(self.down_panele_but_r))
+        self.down_panele_but_r.grid(row=0, column=4)
         self.down_panele.grid(row = 3,column = 1, padx=20, pady=(0,12), sticky = 'nsew')
         
         
@@ -228,7 +237,36 @@ class APP(CTk):
         self.close_app = False
         self.start_server()
         
+    def down_but_comm(self, but):
+        text = but.cget('text').replace('\n',' ')
+        if text == 'Список ключей- процессов':
+            self.show_list_key_proc()
+        elif text == 'Начать блиц':
+            self.blitz('start')
         
+        elif text == 'Завершить блиц':
+            self.blitz('stop')
+    
+    def blitz(self, comm):
+        if comm == 'start': # начать блиц
+            if self.server_stage == None: # можно менять
+                self.server_stage = 'blz'
+                self.draw_message('Блиц начался')
+                
+                
+                # обновить очередь
+                APP.queue = []
+                pass
+            else:
+                self.draw_message('Стадия уже задана')
+                    
+        elif comm == 'stop':
+            if self.server_stage == 'blz': # завершить именно блиц
+                self.server_stage = None
+                self.draw_message('Блиц завершен')
+            else:
+                self.draw_message('Блиц не был запущен')
+                
     def show_list_key_proc(self):
         self.statistic_persenal_frame.grid_forget()
         self.list_processes_frame.grid(row = 1, column = 0, rowspan = 3, padx = (0,0), sticky = 'nsew')
@@ -285,7 +323,7 @@ class APP(CTk):
             del(P)
         
         # каково задание сервера
-        self.server_task = None
+        self.server_stage = None
         def connect(conn):
             def send(string):
                 conn.send(string.encode())
@@ -300,7 +338,7 @@ class APP(CTk):
                 
                 # время старта сходится, а id есть в списке
                 if conn_date == date_s:
-                    print('pass')
+                    
                     send('pass')
 
                     # получаю отчет
@@ -337,7 +375,7 @@ class APP(CTk):
                     
                     # сохранить данные
                     self.save_processes(info_pr, conn_id)
-                    
+
                         
 
                     # диаграммы отчета 
@@ -351,8 +389,10 @@ class APP(CTk):
                     self.data_diag = tuple(all_prs)
                     self.data_id = conn_id
                     self.after(10, self.update_diag)
-                
-                
+
+
+                    # комманды!!!
+                    send('next')
                 
                     # комманды из списка
                     data = recive()
@@ -363,17 +403,27 @@ class APP(CTk):
                             if comm == 'cls' and date_s == conn_date: # клиент закрыл приложение
                                 self.draw_message(f'{APP.dict_clients[conn_id]} покинул сервер!')
                                 self.dict_clients_buttons[conn_id].configure(fg_color='#cccccc')
+                            
+                            elif comm == 'blz_in': # встать в очередь
+                                APP.queue.append(conn_id)
+                                # APP.queue.pop(APP.queue.index())
                 
                         except Exception as er:
                             self.draw_message('Ошибка в уведомлении')
                             print(str(er))
+
                     
                     
-                    # отправить задачу клиенту
-                    if self.server_task == None:
+                    # отправить текущую стадию клиенту
+                    if self.server_stage == None:
                         conn.send('0'.encode())
+                        
+                    elif self.server_stage == 'blz':
+                        id = 0 if conn_id not in APP.queue else APP.queue.index(conn_id) + 1
+                        send(f'blz/{id}')
                     else:
-                            conn.send(self.server_task.encode())
+                        conn.send(self.server_stage.encode())
+                        
                     
                 else: # надо регистрироваться
                     print('rgst')
@@ -404,152 +454,7 @@ class APP(CTk):
                             
                         else:
                             conn.send('//has'.encode())
-                
-                if 0==1:   
-                    if comm == 'open': #клиент включил прогу и проверяет статус регистрации
-                        date_client, id = data.split('/')
-                        id = int(id)
-                        
-                        # проверяю, сходится ли время сеанса и сущесвование id в списке
-                        if date_s == date_client and id in APP.dict_clients:
-                            conn.send('//pass'.encode())
-                        
-                        else: # запросить зарегистрироваться
-                            conn.send('//regist'.encode())
-                    
-                    elif comm == 'regt': # пользователь пытается зарегистрироваться или сменить имя
-                        name, id = data.split('/')
-                    
-                        # проверяю существование идентичных имен
-                        names = [name.upper() for name in APP.dict_clients.values()] # список имен с верхнего регистра. Был замечен баг.
-                        if name.upper() not in names: # нет
-
-                            if id == 'None': #создаю новое id
-                                # генерирую id
-                                id = len(APP.dict_clients)
-                                conn.send(f'{id}/{date_s}'.encode())
-                                
-                                self.draw_message(f'{name} присоединился!')
-                                
-                                # добавить в словарь процессов
-                                self.dict_cntr[id] = ((0,0,0), int(time()))
-                                
-                            else:
-                                conn.send(f'//rename'.encode())
-                                id = int(id)
-                                
-                                self.draw_message(f'{name} вернулся, изменив имя!')
-                                
-                            # добавляю или меняю
-                            APP.dict_clients[id] = name    
-                            
-                            
-                            # отображаю
-                            self.dict_clients_buttons[id].configure(text = name,fg_color = '#edff21' ,text_color = '#4c4f4c')
-                            
-                                
-                        else:
-                            conn.send('//has'.encode())
-                    
-                    elif comm == 'pass':
-                        # клиет не поменял имя
-                        id = int(data)
-                        self.draw_message(f'{APP.dict_clients[id]} вернулся')
-                        
-                    elif comm == 'ctrl': # клиент отправляет отчет
-                        id = int(data)
-                        
-                        # отправить разрешение на отправку
-                        conn.send('//ok'.encode())
-                        
-                        # получить отчет
-                        data = loads(conn.recv(1024))
-                        
-
-                        # сортировка
-                        info_pr = [[],[],[]]
-                        sorted_len_pr = [0,0,0]
-                        for pr in data:
-                            pr_low = pr.lower()
-                            # определить, является ли этот процесс нежелательным
-                            if any(key_w in pr_low for key_w in self.bad_pr):
-                                ind = 2
-                            elif any(key_w in pr_low for key_w in self.good_pr): # разрешенный
-                                ind =0
-                            else: # нейтральные
-                                ind = 1
-                            
-                            
-                            sorted_len_pr[ind] += 1
-                            # нужно ли отображать инфу
-                            info_pr[ind].append(pr)
-                                
-                                
-                            # проверить, новый ли это процесс
-                            self.check_pr(pr)
-                        
-                        if id == APP.focus_pers:
-                            self.show_info_pers(info_pr)
-                        
-                        # сохранить данные
-                        self.save_processes(info_pr, id)
-                        
-                        
-                        # кто пропал
-                        try:
-                            if (datetime.datetime.now() - last_time).total_seconds() > 20: # проверять каждые 20 секунд
-                                last_time = datetime.datetime.now()
-                                for i in tuple(APP.dict_clients.keys()):
-                                    if self.dict_clients_buttons[i].cget('fg_color') not in ('#cccccc','#dcdcdc'):
-                                        # проверяю последнее вхождение
-                                        if int(time()) - self.dict_cntr[i][1]>15: # прошло больше 15 сек с последнего отчета
-                                            self.draw_message(f'{APP.dict_clients[i]} пропал без вести!')
-                                            self.dict_clients_buttons[i].configure(fg_color = '#cccccc')
-                        except Exception as er:
-                            self.draw_message('Ошибка в поиске потеряшек')
-                            print(er)
-                            
-                        self.dict_cntr[id] = (tuple(sorted_len_pr), int(time()))
-                        
-                        
-
-                        # суммирую 
-                        all_prs = [0,0,0]
-                        for i in tuple(self.dict_cntr.values()):
-                            if i != ():
-                                for j in range(3):
-                                    all_prs[j] += i[0][j]
-                        
-                        # диаграммы и кнопка
-                        self.data_diag = tuple(all_prs)
-                        self.data_id = (id)
-                        self.after(10, self.update_diag)
-                    
-                    
-                        # комманды из списка
-                        data = (conn.recv(1024)).decode()
-                        if data != '0':
-                            try:
-                                comm, data = data.split('*')
-                            
-                                if comm == 'cls': # клиент закрыл приложение
-                                    date_client = data
-                                    # проверяю, сходится ли время сеанса и сущесвование id в списке
-                                    if date_s == date_client and id in APP.dict_clients:
-                                        self.draw_message(f'{APP.dict_clients[id]} покинул сервер!')
-                                        self.dict_clients_buttons[id].configure(fg_color='#cccccc')
-                    
-                            except Exception as er:
-                                self.draw_message('Ошибка в уведомлении')
-                                print(str(er))
-                        
-                        
-                        # отправить задачу клиенту
-                        if self.server_task == None:
-                            conn.send('0'.encode())
-                        else:
-                            conn.send(self.server_task.encode())
-                         
+                      
         
         def start():
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
@@ -600,12 +505,32 @@ class APP(CTk):
         
         self.draw_message('Сервер запущен')
 
-
+    def change_frame(self, frame):
+        frames = (self.clients_frame, self.blitz_frame)
+        for f in frames:
+            f.grid_forget()
+        
+        frame.grid(row=2,column=1, sticky='nsew', pady=20, padx=20)
+        
     def menu_action(self, value):
         # отключить сервер
         if value == 'Отключить подключения':
             self.draw_message('Идет отключение...')
-            self.server_task = 'cls'
+            self.server_stage = 'cls'
+            
+        elif value == 'Блиц режим':
+            self.change_frame(self.blitz_frame)
+            
+            # сменить кнопки
+            self.down_panele_but_r.configure(text = 'Начать\nблиц')
+            self.down_panele_but_m.configure(text = 'Завершить\nблиц')
+        
+        elif value == 'Главный экран':
+            self.change_frame(self.clients_frame)
+            
+            # сменить кнопки
+            self.down_panele_but_r.configure(text = 'Образовать\nгруппу')
+            self.down_panele_but_m.configure(text = 'Список ключей-\nпроцессов')
     
     def update_DB(self, type_act):
         
