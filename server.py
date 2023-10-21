@@ -1,5 +1,5 @@
 import socket
-from threading import Thread
+from threading import Thread, active_count
 import datetime
 from time import sleep, time
 from customtkinter import (CTk,
@@ -341,10 +341,22 @@ class APP(CTk):
                     
                     send('pass')
 
+                    # вернулся ли пользователь обратно
+                    data = recive()
+                    if data == '/bck': # он только вернулся
+                        # вывести в табло
+                        self.draw_message(f'{self.dict_clients[conn_id]} вернулся!')
+                        # отображаю
+                        self.dict_clients_buttons[conn_id].configure(text = self.dict_clients[conn_id],fg_color = '#edff21' ,text_color = '#4c4f4c')
+                        return()
+                    else:
+                        send('//ok')
+                        
+
+                    # сортировка
+                    # region
                     # получаю отчет
                     data = loads(conn.recv(1024))
-                    
-                    
                     
                     # сортировка
                     info_pr = [[],[],[]]
@@ -376,8 +388,7 @@ class APP(CTk):
                     # сохранить данные
                     self.save_processes(info_pr, conn_id)
 
-                        
-
+                    
                     # диаграммы отчета 
                     all_prs = [0,0,0]
                     for i in tuple(self.dict_cntr.values()):
@@ -389,12 +400,13 @@ class APP(CTk):
                     self.data_diag = tuple(all_prs)
                     self.data_id = conn_id
                     self.after(10, self.update_diag)
+                    #endregion 
 
 
-                    # комманды!!!
+                    # комманды!
                     send('next')
-                
-                    # комманды из списка
+                    # действия клиента
+                    # region
                     data = recive()
                     if data != '0':
                         try:
@@ -411,10 +423,11 @@ class APP(CTk):
                         except Exception as er:
                             self.draw_message('Ошибка в уведомлении')
                             print(str(er))
-
+                    # endregion
                     
                     
                     # отправить текущую стадию клиенту
+                    #region
                     if self.server_stage == None:
                         conn.send('0'.encode())
                         
@@ -423,14 +436,13 @@ class APP(CTk):
                         send(f'blz/{id}')
                     else:
                         conn.send(self.server_stage.encode())
+                    # endregion
                         
                     
                 else: # надо регистрироваться
-                    print('rgst')
                     send('rgst')
                     
                     unswer = recive()
-                    print(unswer)
                     if unswer != '//ok': # клиент хочет зарегестрироваться
                         # проверяю существование идентичных имен
                         names = [name.upper() for name in APP.dict_clients.values()] # список имен с верхнего регистра. Был замечен баг.
@@ -763,7 +775,7 @@ def on_closing():
     # app.draw_message('Идет выключение сервера...')
     APP.run_server = False
     # ожидать закрытие сервера
-    while app.close_app:
+    while app.close_app and active_count() > 2:
         pass
     app.destroy()
     print('Сервер выключен')

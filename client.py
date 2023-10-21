@@ -33,12 +33,16 @@ from datetime import datetime
         
         
 class APP(CTk):
+    # какая стадия frame
+    frame = None
     # список неотслежываемых программ
     with open('lst.txt') as file:
         untraceable_prs = ['',] # пустой процесс тоже есть в списке программ
         for i in file:
             untraceable_prs.append(i[:-1])
-            
+    
+    # стадия фрейма
+    frame_stage = None     
     
     def __init__(self):
         super().__init__()
@@ -85,7 +89,7 @@ class APP(CTk):
         self.regist_frame = Frames(self, 'regist', (0,1),0)
         self.regist_button_add = CTkButton(self.regist_frame, text = 'отправить', font = self.font, command=self.regist)
         self.regist_button_add.grid(row=1,column=1,pady=(0,30),padx=20, sticky = 'se')
-        self.regist_entry = CTkEntry(self.regist_frame, placeholder_text='Введите ваше имя', font = self.font)
+        self.regist_entry = CTkEntry(self.regist_frame, font = self.font)
         self.regist_entry.grid(row=0,column=0,pady=10,padx=20, columnspan=2, sticky = 'we')
         
         
@@ -109,6 +113,7 @@ class APP(CTk):
         # self.draw_message(f'В {14} в очереди')
         # self.change_frame('blitz')
         
+
         self.connect_to_server()
      
     def draw_message(self, mes='Приветсвую/Первый вход'):
@@ -138,8 +143,13 @@ class APP(CTk):
             g.start()
 
     def blitz(self):
-        if self.blitz_button.cget('text') == 'Встать\nв очередь' and self.queue_comm_text != 'cls':
-            self.queue_comm_text = 'blz_in'
+        if self.queue_comm_text != 'cls': # нет задания выйти
+            
+            if self.blitz_button.cget('text') == 'Встать\nв очередь':
+                self.queue_comm_text = 'blz_in'
+        
+            else:
+                self.queue_comm_text = 'blz_out'
     
     def connect_to_server(self, comm = 'open', data = None):
         def data_interchange(s, data = None):
@@ -154,8 +164,8 @@ class APP(CTk):
             
             # получаю результат
             unswer = recive()
-            if unswer == 'rgst': # требуется регистрация    
-                if comm == 'regist':
+            if unswer == 'rgst': # требуется регистрация   
+                if comm == 'regist': # пользователь пытается зарегистрироваться
                     # отправить имя
                     self.focus()
                     send(self.regist_entry.get())
@@ -177,10 +187,11 @@ class APP(CTk):
                     else:
                         self.draw_message('Такое имя уже/занято:(')
 
-                else:
+                else: # пользователь получил задание регистрации
                     send('//ok')
                     self.change_frame('regist')
                     self.regist_entry.delete(0, END)
+                    self.regist_entry.configure(placeholder_text='Введите ваше имя')
                     # закрыть контроллер
                     self.controling_flag = False
                     
@@ -190,32 +201,43 @@ class APP(CTk):
                     
             elif comm == 'open': # если клиент вернулся в базу
                 self.draw_message('Вы вернулись!')
-            
+                
+                # отправляю отчет
+                send('/bck')
+                recive()
+
                 self.change_frame()
                 self.has_at_server = True
                 self.controller()
                   
             else: # другие случаи
                 # отправляю отчет
+                send('/cnt')
+                recive()
+                
+                
+                # отправляю отчет
                 self.draw_message('*****')
                 s.send(dumps(data))
-
 
 
                 # получить next
                 recive()
 
-                # побочные команды
+
+                # действия клиента
+                # region
                 if self.queue_comm_text != None:
-                    if self.queue_comm_text == 'cls':
-                        
-                        send('cls')
+                    send(self.queue_comm_text)
+                    
+                    
                 else:
                     send('0')
-                    
+                # endregion  
                 
                 
                 # стадия сервера
+                #region
                 data = s.recv(1024).decode()
                 if data == 'cls': # надо завершить программу
                     self.task_server = 'task_cls'
@@ -229,11 +251,23 @@ class APP(CTk):
                     
                     # есть ли в базе
                     if id != '0':
-                        self.draw_message('Tcnm')
+                        self.draw_message(f'Вы {id}\nв очереди!')
+                        
+                        if self.blitz_button.cget('text') != 'Покинуть\nочередь':
+                            self.blitz_button.configure(text = 'Покинуть\nочередь')
                     else:
                         self.draw_message('Вы можете\nвстать в очередь')
                         
-                        self.blitz_button.configure(text = 'Встать\nв очередь')
+                        if self.blitz_button.cget('text') != 'Встать\nв очередь':
+                            self.blitz_button.configure(text = 'Встать\nв очередь')
+                else:
+                    if APP.frame != None:
+                        self.change_frame()
+                    
+                    # очистить стадию при надобности
+                    if self.queue_comm_text != None:
+                        self.queue_comm_text =  None
+                # endregion
         
         def connection(data = data):
             # получить хост и порт
@@ -294,6 +328,7 @@ class APP(CTk):
             
         if name != None:
             self.dict_frames[name].grid(row=1, column=0, pady = (0,20), padx=20, sticky='we')
+            self.focus()
             
     def regist(self):
         data = self.regist_entry.get()
@@ -346,12 +381,15 @@ class APP(CTk):
                 self.connect_to_server()
             else:
                 self.draw_message('Код должен содержать\nмаксимум 3 знака!')
+                self.no_conn_entry.delete(0, 'end')
+                self.focus()
                 
                 
             
         else:
             self.draw_message('Используйте/только цифры!')
             self.no_conn_entry.delete(0, 'end')
+            self.focus()
         
     def controller(self):
         def controling():
@@ -374,7 +412,7 @@ class APP(CTk):
                 
             while self.controling_flag:
                 # отправлять отчет каждые 5 секунд
-                sleep(1)
+                sleep(5)
                 
                 # спустя 5 секунд проверить флаг
                 if self.controling_flag == False:
