@@ -1,3 +1,6 @@
+# Version - v0.91
+serv_version = 'v0.91'
+
 import socket
 from threading import Thread, active_count
 import datetime
@@ -62,7 +65,7 @@ class APP(CTk):
         super().__init__()
         
         # окно
-        self.title("server")
+        self.title(f"server ({serv_version})")
         self.geometry(f"{int(self.winfo_screenwidth()*0.9)}x{int(self.winfo_screenheight()*0.5)}+0+0")
         
         
@@ -254,9 +257,7 @@ class APP(CTk):
                 self.draw_message('Блиц начался')
                 
                 
-                # обновить очередь
-                APP.queue = []
-                pass
+                
             else:
                 self.draw_message('Стадия уже задана')
                     
@@ -264,6 +265,12 @@ class APP(CTk):
             if self.server_stage == 'blz': # завершить именно блиц
                 self.server_stage = None
                 self.draw_message('Блиц завершен')
+                
+                # обновить очередь
+                APP.queue = []
+                # Указать изменения в списке
+                self.blitz_label.configure(text = '\n'.join(APP.queue))
+                
             else:
                 self.draw_message('Блиц не был запущен')
                 
@@ -416,9 +423,21 @@ class APP(CTk):
                                 self.draw_message(f'{APP.dict_clients[conn_id]} покинул сервер!')
                                 self.dict_clients_buttons[conn_id].configure(fg_color='#cccccc')
                             
-                            elif comm == 'blz_in': # встать в очередь
-                                APP.queue.append(conn_id)
-                                # APP.queue.pop(APP.queue.index())
+                            elif 'blz' in comm and self.server_stage == 'blz': 
+                                
+                                if comm == 'blz_in': # встать в очередь
+                                    # Если персонажа нет в списке, то добавить
+                                    if conn_id not in APP.queue:
+                                        print('add')
+                                        APP.queue.append(conn_id)
+                                else: # покинуть
+                                    # Если персонажа есть в списке, то удалить
+                                    if conn_id in APP.queue:
+                                        APP.queue.pop(APP.queue.index(conn_id))
+                                    
+                                queue = [f'{i+1}) {self.dict_clients[id]}' for i,id in enumerate(APP.queue[:4])]  
+                                # Указать изменения в списке
+                                self.blitz_label.configure(text = '\n'.join(queue))
                 
                         except Exception as er:
                             self.draw_message('Ошибка в уведомлении')
@@ -466,7 +485,9 @@ class APP(CTk):
                             
                         else:
                             conn.send('//has'.encode())
-                      
+                    
+                    else: # проверка версий
+                        send(serv_version)
         
         def start():
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
@@ -638,8 +659,13 @@ class APP(CTk):
             
             name = self.dict_clients_buttons[APP.focus_pers].cget('text')
             
+            # время
+            if info_prs == None: # архив
+                time_c = int(time() - self.dict_cntr[APP.focus_pers][1])
+                time_c = f'{time_c//60}:{time_c%60}'
+                print(time_c)
             # архивные ли процессы
-            text = f'{name}\n\nПроцессы:' if info_prs != None else f'{name}\n\nАрхив:'
+            text = f'{name}\n\nПроцессы:' if info_prs != None else f'{name}\n\nАрхив({time_c}):'
             self.statistic_persenal_title.configure(text = text)
             
             # подгрузить старые процессы, если info_prs пустой

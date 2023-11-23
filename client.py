@@ -1,3 +1,6 @@
+# Version - v0.91
+client_version = 'v0.91'
+
 from customtkinter import (CTk,
                            CTkFrame,
                            CTkProgressBar,
@@ -12,6 +15,8 @@ from time import sleep
 import socket
 import ctypes
 from pickle import dumps
+from tkinter.messagebox import showerror, showinfo
+from tendo import singleton
 
 class Frames(CTkFrame):
     def __init__(self, master, name,rows=None, columns=None, height=140):
@@ -47,7 +52,7 @@ class APP(CTk):
     def __init__(self):
         super().__init__()
         
-        self.title("client")
+        self.title(f"client ({client_version})")
         self.geometry(f"{360}x{420}")
         self.resizable(False, False)
         
@@ -113,7 +118,7 @@ class APP(CTk):
         # self.draw_message(f'В {14} в очереди')
         # self.change_frame('blitz')
         
-
+        showinfo('Предупреждение','Убедительная просьба\nне закрывать командную строку!')
         self.connect_to_server()
      
     def draw_message(self, mes='Приветсвую/Первый вход'):
@@ -147,9 +152,11 @@ class APP(CTk):
             
             if self.blitz_button.cget('text') == 'Встать\nв очередь':
                 self.queue_comm_text = 'blz_in'
-        
             else:
                 self.queue_comm_text = 'blz_out'
+                
+            self.draw_message('Запрос отправляется')
+            self.blitz_button.grid_forget()
     
     def connect_to_server(self, comm = 'open', data = None):
         def data_interchange(s, data = None):
@@ -165,7 +172,7 @@ class APP(CTk):
             # получаю результат
             unswer = recive()
             if unswer == 'rgst': # требуется регистрация   
-                if comm == 'regist': # пользователь пытается зарегистрироваться
+                if comm == 'regist': # пользователь регистрирует имя
                     # отправить имя
                     self.focus()
                     send(self.regist_entry.get())
@@ -189,15 +196,29 @@ class APP(CTk):
 
                 else: # пользователь получил задание регистрации
                     send('//ok')
-                    self.change_frame('regist')
-                    self.regist_entry.delete(0, END)
-                    self.regist_entry.configure(placeholder_text='Введите ваше имя')
-                    # закрыть контроллер
-                    self.controling_flag = False
                     
+                    # проверка версий
+                    serv_v = recive()
+                    if serv_v != client_version: # версии не совпадают
+                        
+                        self.load_bar.set(1.0)
+                        self.load_bar.configure(mode='determinate')
+                        self.load_bar.stop()
+                        
+                        showerror('Версии не совпадают!',f'На ваш компьютер\n установлена устаревшая версия клиента!\nВерсия сервера - {serv_v}\nВерсия клиента - {client_version}')
+                        
+                        self.draw_message('Закройте приложение')
                     
-                    # регистрация
-                    self.draw_message('Требуется/регистрация!')
+                    else:
+                        self.change_frame('regist')
+                        self.regist_entry.delete(0, END)
+                        self.regist_entry.configure(placeholder_text='Введите ваше имя')
+                        # закрыть контроллер
+                        self.controling_flag = False
+                        
+                        
+                        # регистрация
+                        self.draw_message('Требуется/регистрация!')
                     
             elif comm == 'open': # если клиент вернулся в базу
                 self.draw_message('Вы вернулись!')
@@ -255,11 +276,18 @@ class APP(CTk):
                         
                         if self.blitz_button.cget('text') != 'Покинуть\nочередь':
                             self.blitz_button.configure(text = 'Покинуть\nочередь')
+                            
+                            # включить кнопку
+                            self.blitz_button.grid(row=0, column = 0, pady=20, padx=20, sticky = 'se')
                     else:
                         self.draw_message('Вы можете\nвстать в очередь')
                         
                         if self.blitz_button.cget('text') != 'Встать\nв очередь':
                             self.blitz_button.configure(text = 'Встать\nв очередь')
+                            
+                            print('dw')
+                            # включить кнопку
+                            self.blitz_button.grid(row=0, column = 0, pady=20, padx=20, sticky = 'se')
                 else:
                     if APP.frame != None:
                         self.change_frame()
@@ -295,7 +323,7 @@ class APP(CTk):
                 
                 except TimeoutError:
                     self.draw_message('Кажется, вы указали/неверный код')
-                    self. controling_flag = False
+                    self.controling_flag = False
                     self.change_frame('no_conn')
                 
                 except RuntimeError:
@@ -463,28 +491,24 @@ class APP(CTk):
     
 app = APP()
 def on_closing():
+    print(app.controling_flag)
     if app.controling_flag:
+        print('q')
         app.queue_comm()
     else:
-        app.destroy()    
+        print('d')
+        app.destroy()  
+        print('close')  
 
 app.protocol("WM_DELETE_WINDOW", on_closing)
-app.mainloop()
 
-# app.connect_to_server('close')
-# app.controling_flag = False
-# if app.has_at_server:
-#     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-#         # получить хост и порт
-#         with open('HOST_PORT.txt') as file:
-#             HOST = file.readline()[:-1]
-#             PORT = int(file.readline()[:-1])
-        
-#         with open('last_conn.txt') as file:
-#             date = file.readline()[:-1]
-#         s.connect((HOST, PORT))
-#         s.send(f'cls*{app.id}/{date}'.encode())
-    
-    
-    
+
+# проверить, запущена ли уже эта программа
+try:
+    singleton.SingleInstance()
+except:
+    showerror('Программа уже запущена!','Вы уже запустили программу.\nВы можете найти ее в панели задач!\n\nPS:Панель задачь расположена в самом низу экрана')
+else:
+    app.mainloop()
+
     
